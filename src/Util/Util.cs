@@ -5,7 +5,7 @@ using FMOD.Studio;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace Celeste.Mod.HeavenRush; 
+namespace Celeste.Mod.RushHelper; 
 
 public static class Util {
     private const BindingFlags ALL_FLAGS = BindingFlags.Instance |

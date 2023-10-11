@@ -1,7 +1,7 @@
 using System;
 using MonoMod.RuntimeDetour;
 
-namespace Celeste.Mod.HeavenRush; 
+namespace Celeste.Mod.RushHelper; 
 
 public static class InputExtensions {
     private static IDetour Celeste_Input_get_GrabCheck;

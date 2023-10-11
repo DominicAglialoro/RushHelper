@@ -1,7 +1,7 @@
 using Microsoft.Xna.Framework;
 using Monocle;
 
-namespace Celeste.Mod.HeavenRush; 
+namespace Celeste.Mod.RushHelper; 
 
 public class SmoothParticleEmitter : Component {
     public ParticleSystem System;

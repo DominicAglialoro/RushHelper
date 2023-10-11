@@ -2,7 +2,7 @@ using Celeste.Mod.Entities;
 using Microsoft.Xna.Framework;
 using Monocle;
 
-namespace Celeste.Mod.HeavenRush; 
+namespace Celeste.Mod.RushHelper; 
 
 [CustomEntity("rushHelper/rushLevelController"), Tracked]
 public class RushLevelController : Entity {

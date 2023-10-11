@@ -7,7 +7,7 @@ using MonoMod.Cil;
 using MonoMod.RuntimeDetour;
 using MonoMod.Utils;
 
-namespace Celeste.Mod.HeavenRush;
+namespace Celeste.Mod.RushHelper;
 
 public static class PlayerExtensions {
     private const float USE_CARD_COOLDOWN = 0.1f;

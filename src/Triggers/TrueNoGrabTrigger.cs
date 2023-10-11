@@ -2,7 +2,7 @@ using Celeste.Mod.Entities;
 using Microsoft.Xna.Framework;
 using Monocle;
 
-namespace Celeste.Mod.HeavenRush.Triggers; 
+namespace Celeste.Mod.RushHelper.Triggers; 
 
 [CustomEntity("rushHelper/trueNoGrabTrigger")]
 public class TrueNoGrabTrigger : Trigger {

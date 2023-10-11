@@ -2,7 +2,7 @@ using System;
 using Microsoft.Xna.Framework;
 using Monocle;
 
-namespace Celeste.Mod.HeavenRush; 
+namespace Celeste.Mod.RushHelper; 
 
 public static class LevelExtensions {
     public static void WarpToNextLevel(this Level level) {

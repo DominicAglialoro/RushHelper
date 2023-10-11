@@ -1,7 +1,7 @@
 using Microsoft.Xna.Framework;
 using Monocle;
 
-namespace Celeste.Mod.HeavenRush; 
+namespace Celeste.Mod.RushHelper; 
 
 public static class ParticleSystemExtensions {
     public static void Emit(this ParticleSystem particleSystem, ParticleBurst burst, Vector2 position, float angle)

@@ -1,4 +1,4 @@
-namespace Celeste.Mod.HeavenRush; 
+namespace Celeste.Mod.RushHelper; 
 
 public enum AbilityCardType {
     Yellow,

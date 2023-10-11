@@ -3,7 +3,7 @@ using System.Collections;
 using Monocle;
 using MonoMod.Utils;
 
-namespace Celeste.Mod.HeavenRush; 
+namespace Celeste.Mod.RushHelper; 
 
 public static class StateMachineExtensions {
     public static int AddState(this StateMachine stateMachine, Func<int> onUpdate = null, Func<IEnumerator> coroutine = null, Action begin = null, Action end = null) {

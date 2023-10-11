@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Celeste.Mod.HeavenRush; 
+namespace Celeste.Mod.RushHelper; 
 
 public class CardInventory {
     private const int MAX_COUNT = 3;

@@ -1,6 +1,6 @@
 using On.Celeste.Mod.Meta;
 
-namespace Celeste.Mod.HeavenRush; 
+namespace Celeste.Mod.RushHelper; 
 
 public static class MapMetaExtensions {
     public static void Load() => MapMeta.GetInventory += MapMeta_GetInventory;
