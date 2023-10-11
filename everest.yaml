@@ -1,0 +1,10 @@
+- Name: RushHelper
+  Version: 0.1.0
+  DLL: src/bin/net452/RushHelper.dll
+  Dependencies:
+    - Name: Everest
+      Version: 1.4174.0
+    - Name: ExtendedVariantMode
+      Version: 0.27.0
+    - Name: MaxHelpingHand
+      Version: 1.28.1

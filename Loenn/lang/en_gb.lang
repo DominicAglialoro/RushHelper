@@ -1,0 +1,18 @@
+entities.rushHelper/abilityCard.placements.name.yellow=Ability Card (Yellow)
+entities.rushHelper/abilityCard.placements.name.blue=Ability Card (Blue)
+entities.rushHelper/abilityCard.placements.name.green=Ability Card (Green)
+entities.rushHelper/abilityCard.placements.name.red=Ability Card (Red)
+entities.rushHelper/abilityCard.placements.name.white=Ability Card (White)
+
+entities.rushHelper/surfPlatform.placements.name.platform=Surf Platform
+
+entities.rushHelper/demon.placements.name.grounded=Demon (Grounded)
+entities.rushHelper/demon.placements.name.aerial=Demon (Aerial)
+
+entities.rushHelper/rushGoal.placements.name.goal=Rush Goal
+
+entities.rushHelper/rushLevelController.placements.name.controller=Rush Level Controller
+
+entities.rushHelper/levelTitleMessage.placements.name.message=Level Title Message
+
+triggers.rushHelper/trueNoGrabTrigger.placements.name.trigger=True No Grab Trigger
