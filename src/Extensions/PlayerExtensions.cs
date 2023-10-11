@@ -830,10 +830,12 @@ public static class PlayerExtensions {
         var cursor = new ILCursor(il);
         ILLabel label = null;
         
-        cursor.GotoNext(MoveType.After,
+        cursor.GotoNext(MoveType.Before,
+            instr => instr.OpCode == OpCodes.Ldarg_0,
+            instr => instr.MatchLdfld<Player>("StateMachine"),
             instr => instr.MatchCallvirt<StateMachine>("get_State"),
-            instr => instr.OpCode == OpCodes.Ldc_I4_5,
-            instr => instr.MatchBeq(out label));
+            instr => instr.OpCode == OpCodes.Ldc_I4_5);
+        cursor.FindNext(out _, instr => instr.MatchBeq(out label));
 
         cursor.Emit(OpCodes.Ldarg_0);
         cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(IsInTransitionableState)));
@@ -844,13 +846,18 @@ public static class PlayerExtensions {
         var cursor = new ILCursor(il);
         ILLabel label = null;
 
-        while (cursor.TryGotoNext(MoveType.After, 
+        while (cursor.TryGotoNext(MoveType.Before, 
+                   instr => instr.OpCode == OpCodes.Ldarg_0,
+                   instr => instr.MatchLdfld<Player>("StateMachine"),
                    instr => instr.MatchCallvirt<StateMachine>("get_State"),
-                   instr => instr.OpCode == OpCodes.Ldc_I4_5,
-                   instr => instr.MatchBeq(out label))) {
+                   instr => instr.OpCode == OpCodes.Ldc_I4_5)) {
+            cursor.FindNext(out _, instr => instr.MatchBeq(out label));
+            
             cursor.Emit(OpCodes.Ldarg_0);
             cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(IsInTransitionableState)));
             cursor.Emit(OpCodes.Brtrue_S, label);
+
+            cursor.GotoNext(instr => instr.OpCode == OpCodes.Ldc_I4_5);
         }
     }
 

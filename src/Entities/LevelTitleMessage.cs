@@ -30,11 +30,11 @@ public class LevelTitleMessage : Entity {
 
     public override void Awake(Scene scene) {
         base.Awake(scene);
-        
+
+        var respawnPoint = ((Level) scene).Session.RespawnPoint;
         var player = Scene.Tracker.GetEntity<Player>();
 
-        if (player != null)
-            playerStartPosition = player.Position;
+        playerStartPosition = respawnPoint ?? player?.Position ?? Vector2.Zero;
         
         // ((Level) Scene).Session.DoNotLoad.Add(id);
     }
