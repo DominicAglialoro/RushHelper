@@ -13,6 +13,7 @@ public static class LevelExtensions {
             player.CleanUpTriggers();
             level.TeleportTo(player, level.GetNextLevel(), Player.IntroTypes.Transition);
             level.Session.FirstLevel = false;
+            level.Camera.Position = level.GetFullCameraTargetAt(player, player.Position);
             player.StateMachine.State = 0;
             player.Speed = Vector2.Zero;
             player.Dashes = 1;

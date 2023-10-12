@@ -5,9 +5,6 @@ namespace Celeste.Mod.RushHelper;
 public class RushHelperModule : EverestModule {
     public static RushHelperModule Instance { get; private set; }
 
-    public override Type SessionType => typeof(RushHelperSession);
-    public static RushHelperSession Session => (RushHelperSession) Instance._Session;
-
     public RushHelperModule() {
         Instance = this;
 #if DEBUG
@@ -19,17 +16,7 @@ public class RushHelperModule : EverestModule {
 #endif
     }
 
-    public override void Load() {
-        InputExtensions.Load();
-        MapMetaExtensions.Load();
-        PlayerExtensions.Load();
-    }
+    public override void Load() => PlayerExtensions.Load();
 
-    public override void Initialize() { }
-
-    public override void Unload() {
-        InputExtensions.Unload();
-        MapMetaExtensions.Unload();
-        PlayerExtensions.Unload();
-    }
+    public override void Unload() => PlayerExtensions.Unload();
 }
