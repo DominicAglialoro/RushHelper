@@ -1,3 +1,4 @@
+using System;
 using Celeste.Mod.Entities;
 using Microsoft.Xna.Framework;
 using Monocle;
@@ -5,9 +6,7 @@ using Monocle;
 namespace Celeste.Mod.RushHelper; 
 
 [CustomEntity("rushHelper/demon"), Tracked]
-public class Demon : Entity {
-    private const float REMOVE_AFTER_KILL_TIME = 0.033f;
-
+public class Demon : Actor {
     private static readonly ParticleBurst[] KILL_PARTICLES_LARGE = {
         CreateKillParticleLarge(0, new Vector2(-4f, 0f)),
         CreateKillParticleLarge(1, new Vector2(1f, 4f)),
@@ -67,8 +66,7 @@ public class Demon : Entity {
             
             float angle = (demon.Center - center).Angle();
 
-            demon.Die(false);
-            demon.Add(new Coroutine(Util.AfterFrame(() => demon.SpawnKillParticles(angle))));
+            demon.Die(() => angle);
             killedCount++;
             sum += demon.Center;
 
@@ -80,7 +78,6 @@ public class Demon : Entity {
             return 0;
         
         Audio.Play(SFX.game_09_iceball_break, sum / killedCount);
-        scene.Tracker.GetEntity<RushLevelController>()?.DemonsKilled(killedCount);
 
         return dashRestores;
     }
@@ -97,7 +94,7 @@ public class Demon : Entity {
     public Demon(EntityData data, Vector2 offset) : base(data.Position + offset) {
         dashRestores = data.Int("dashRestores");
 
-        Collider = new Circle(10f);
+        Collider = new Hitbox(16f, 16f, -8f, -8f);
         Depth = 100;
         
         Add(body = new Sprite(GFX.Game, "objects/rushHelper/demon/body"));
@@ -144,31 +141,36 @@ public class Demon : Entity {
         UpdateVisual();
     }
 
-    public void OnPlayer(Player player) {
-        if (alive && player.HitDemon()) {
-            Celeste.Freeze(0.016f);
-            Audio.Play(SFX.game_09_iceball_break, Center);
-            
-            if (dashRestores >= 2)
-                Audio.Play(SFX.game_10_pinkdiamond_touch, player.Position);
-            
-            Die(true);
-            Add(new Coroutine(Util.AfterFrame(() => {
-                var speed = player.Speed;
-
-                if (speed == Vector2.Zero)
-                    speed = player.DashDir;
-
-                if (speed == Vector2.Zero)
-                    SpawnKillParticles(player.Facing == Facings.Right ? 0f : MathHelper.Pi);
-                else
-                    SpawnKillParticles(speed.Angle());
-            })));
-            Scene.Tracker.GetEntity<RushLevelController>()?.DemonsKilled(1);
-        }
+    protected override void OnSquish(CollisionData data) {
+        if (!alive)
+            return;
         
-        if (Collidable && !alive && player.RefillDashes(dashRestores))
-            Collidable = false;
+        Die(() => data.Direction.Angle());
+        Audio.Play(SFX.game_09_iceball_break, Center);
+    }
+
+    public void OnPlayer(Player player) {
+        if (!alive || !player.HitDemon())
+            return;
+        
+        player.RefillDashes(dashRestores);
+        Celeste.Freeze(0.016f);
+        Audio.Play(SFX.game_09_iceball_break, Center);
+            
+        if (dashRestores >= 2)
+            Audio.Play(SFX.game_10_pinkdiamond_touch, player.Position);
+            
+        Die(() => {
+            var speed = player.Speed;
+
+            if (speed == Vector2.Zero)
+                speed = player.DashDir;
+
+            if (speed == Vector2.Zero)
+                return player.Facing == Facings.Right ? 0f : MathHelper.Pi;
+            
+            return speed.Angle();
+        });
     }
 
     private void UpdateVisual() {
@@ -184,27 +186,30 @@ public class Demon : Entity {
         eyes.Position = eyesOffset + (player.Position - (Position + eyesOffset)).SafeNormalize().Round();
     }
 
-    private void Die(bool allowPhantomRestore) {
+    private void Die(Func<float> getKillParticlesAngle) {
+        if (!alive)
+            return;
+
         alive = false;
-
-        if (dashRestores == 0 || !allowPhantomRestore)
-            Collidable = false;
-
+        
         body.Stop();
         body.Texture = GFX.Game["objects/rushHelper/demon/shatter"];
         outline.Visible = false;
 
         if (feet != null)
             feet.Visible = false;
-
-        Add(new Coroutine(Util.AfterTime(REMOVE_AFTER_KILL_TIME, RemoveSelf)));
-    }
-
-    private void SpawnKillParticles(float angle) {
-        Visible = false;
-        level.ParticlesFG.Emit(KILL_PARTICLES_LARGE[0], Position, angle);
-        level.ParticlesFG.Emit(KILL_PARTICLES_LARGE[1], Position, angle);
-        level.ParticlesFG.Emit(KILL_PARTICLES_LARGE[2], Position, angle);
-        level.ParticlesFG.Emit(KILL_PARTICLE_SMALL, Position, angle);
+        
+        Add(new Coroutine(Util.AfterFrame(() => {
+            float angle = getKillParticlesAngle();
+            
+            level.ParticlesFG.Emit(KILL_PARTICLES_LARGE[0], Position, angle);
+            level.ParticlesFG.Emit(KILL_PARTICLES_LARGE[1], Position, angle);
+            level.ParticlesFG.Emit(KILL_PARTICLES_LARGE[2], Position, angle);
+            level.ParticlesFG.Emit(KILL_PARTICLE_SMALL, Position, angle);
+            RemoveSelf();
+        })));
+        Scene.Tracker.GetEntity<RushLevelController>()?.DemonKilled();
+        
+        level.OnEndOfFrame += () => Collidable = false;
     }
 }

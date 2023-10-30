@@ -57,7 +57,7 @@ public class RushGoal : Entity {
     public override void Awake(Scene scene) {
         base.Awake(scene);
 
-        if (Scene.Tracker.CountEntities<Demon>() == 0)
+        if (Scene.Tracker.GetEntity<Demon>() == null || Scene.Tracker.GetEntity<RushLevelController>() == null)
             return;
         
         Collidable = false;

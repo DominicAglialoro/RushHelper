@@ -8,35 +8,38 @@ namespace Celeste.Mod.RushHelper;
 public class RushLevelController : Entity {
     private DemonCounter demonCounter;
     private int remainingDemonCount;
-    private bool requireKillAllDemons;
+    private bool demonKilledThisFrame;
 
-    public RushLevelController(EntityData data, Vector2 offset) : base(data.Position + offset) {
-        requireKillAllDemons = data.Bool("requireKillAllDemons");
-        Tag = Tags.FrozenUpdate;
-    }
+    public RushLevelController(EntityData data, Vector2 offset) : base(data.Position + offset) => Tag = Tags.FrozenUpdate;
 
     public override void Awake(Scene scene) {
         base.Awake(scene);
-        remainingDemonCount = requireKillAllDemons ? Scene.Tracker.CountEntities<Demon>() : 0;
+        remainingDemonCount = Scene.Tracker.CountEntities<Demon>();
 
         if (remainingDemonCount > 0)
             Scene.Add(demonCounter = new DemonCounter(remainingDemonCount));
     }
 
-    public void DemonsKilled(int count) {
+    public void DemonKilled() {
         if (remainingDemonCount == 0)
             return;
 
-        remainingDemonCount -= count;
-
-        if (remainingDemonCount <= 0) {
-            remainingDemonCount = 0;
-            Util.PlaySound("event:/classic/sfx13", 2f);
-            Scene.Tracker.GetEntity<RushGoal>()?.Activate();
+        if (!demonKilledThisFrame) {
+            demonKilledThisFrame = true;
+            ((Level) Scene).OnEndOfFrame += () => {
+                if (remainingDemonCount == 0)
+                    Util.PlaySound("event:/classic/sfx13", 2f);
+                else
+                    Util.PlaySound("event:/classic/sfx8", 2f);
+                
+                demonCounter?.UpdateDemonCount(remainingDemonCount);
+                demonKilledThisFrame = false;
+            };
         }
-        else
-            Util.PlaySound("event:/classic/sfx8", 2f);
-        
-        demonCounter?.UpdateDemonCount(remainingDemonCount);
+
+        remainingDemonCount--;
+
+        if (remainingDemonCount == 0)
+            Scene.Tracker.GetEntity<RushGoal>()?.Activate();
     }
 }

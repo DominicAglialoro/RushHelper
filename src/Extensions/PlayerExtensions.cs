@@ -20,7 +20,7 @@ public static class PlayerExtensions {
     private const float BLUE_DASH_END_SPEED = 240f;
     private const float BLUE_DASH_DURATION = 0.15f;
     private const float BLUE_DASH_ALLOW_JUMP_AT = 0.05f;
-    private const float BLUE_DASH_HYPER_GRACE_TIME = 0.033f;
+    private const float BLUE_DASH_HYPER_GRACE_TIME = 0.05f;
     private const float GREEN_DIVE_FALL_SPEED = 420f;
     private const float GREEN_DIVE_LAND_SPEED = 180f;
     private const float GREEN_DIVE_LAND_KILL_RADIUS = 48f;
@@ -134,7 +134,6 @@ public static class PlayerExtensions {
         
         extData.CardInventoryIndicator.UpdateInventory(cardInventory);
         extData.CardInventoryIndicator.PlayAnimation();
-        Input.Grab.BufferTime = 0.08f;
 
         return true;
     }
@@ -228,9 +227,6 @@ public static class PlayerExtensions {
         
         cardInventoryIndicator.UpdateInventory(cardInventory);
         cardInventoryIndicator.StopAnimation();
-
-        if (cardInventory.CardCount == 0)
-            Input.Grab.BufferTime = 0f;
 
         return cardType;
     }
@@ -393,11 +389,31 @@ public static class PlayerExtensions {
                || state == extData.WhiteDashIndex;
     }
 
+    private static bool BlueDashGroundCheck(this Player player) {
+        int checkDistance = 5;
+        
+        foreach (var entity in player.Scene.Tracker.GetEntities<Spikes>()) {
+            if (((Spikes) entity).Direction != Spikes.Directions.Up || !player.CollideCheck(entity, player.Position + Vector2.UnitY * 5f))
+                continue;
+
+            checkDistance = 3;
+
+            break;
+        }
+
+        if (!player.OnGround(checkDistance))
+            return false;
+        
+        player.GetData(out var dynamicData, out _);
+
+        return !dynamicData.Invoke<bool>("DashCorrectCheck", Vector2.UnitY * checkDistance);
+    }
+
     private static int BlueDashUpdate(this Player player) {
         player.GetData(out var dynamicData, out var extData);
         player.UpdateTrail(Color.Blue, 0.016f, 0.66f);
 
-        if (player.OnGround(5) || dynamicData.Get<float>("jumpGraceTimer") > BLUE_DASH_HYPER_GRACE_TIME)
+        if (dynamicData.Get<float>("jumpGraceTimer") > BLUE_DASH_HYPER_GRACE_TIME || player.BlueDashGroundCheck())
             dynamicData.Set("jumpGraceTimer", BLUE_DASH_HYPER_GRACE_TIME);
 
         if (Input.Jump.Pressed
@@ -512,7 +528,7 @@ public static class PlayerExtensions {
 
         return extData.RedBoostDashIndex;
     }
-    
+
     private static IEnumerator RedBoostDashCoroutine(this Player player) {
         yield return null;
         
@@ -612,7 +628,7 @@ public static class PlayerExtensions {
         Audio.Play(SFX.char_bad_dreamblock_exit);
         Audio.Play(SFX.game_05_redbooster_end);
     }
-    
+
     private static void BeforeBaseUpdate(Player player) {
         if (player.CollideCheck<SurfPlatform>(player.Position + Vector2.UnitY)) {
             player.GetOrCreateData(out _, out var extData);
@@ -677,7 +693,7 @@ public static class PlayerExtensions {
 
         return state == extData.GreenDiveIndex || state == extData.WhiteDashIndex;
     }
-    
+
     private static float GetUltraBoostSpeed(float defaultSpeed, Player player) {
         if (!player.TryGetData(out _, out var extData) || player.StateMachine.State != extData.RedBoostDashIndex)
             return defaultSpeed;
@@ -754,7 +770,7 @@ public static class PlayerExtensions {
         if (extData.SurfSoundSource.Playing)
             extData.SurfSoundSource.Param("fade", MathHelper.Min(Math.Abs(player.Speed.X) / GROUND_BOOST_SPEED, 1f));
     }
-    
+
     private static void Player_orig_Update_il(ILContext il) {
         var cursor = new ILCursor(il);
 
