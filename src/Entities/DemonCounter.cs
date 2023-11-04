@@ -8,7 +8,6 @@ public class DemonCounter : Entity {
     private const float TEXT_ANIM_DURATION = 0.25f;
     private const float EXIT_ANIM_DURATION = 0.5f;
     
-    private Level level;
     private MTexture bg;
     private string text;
     private bool animOut;
@@ -21,8 +20,6 @@ public class DemonCounter : Entity {
         Tag = Tags.HUD | Tags.FrozenUpdate;
         text = count.ToString();
     }
-
-    public override void Awake(Scene scene) => level = (Level) scene;
 
     public override void Update() {
         base.Update();
@@ -42,7 +39,7 @@ public class DemonCounter : Entity {
     }
 
     public override void Render() {
-        if (level.Paused)
+        if (Scene.Paused)
             return;
 
         var position = new Vector2(MathHelper.Lerp(40f, -bg.Width, Ease.CubeIn(exitAnim / EXIT_ANIM_DURATION)), GetYPosition());
@@ -67,7 +64,7 @@ public class DemonCounter : Entity {
     private float GetYPosition() {
         const float y = 50f;
         
-        if (level.TimerHidden)
+        if (((Level) Scene).TimerHidden)
             return y;
 
         if (Settings.Instance.SpeedrunClock == SpeedrunType.Chapter)

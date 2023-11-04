@@ -88,7 +88,6 @@ public class Demon : Actor {
     private Image eyes;
     private Image feet;
     private SineWave sine;
-    private Level level;
     private bool alive = true;
 
     public Demon(EntityData data, Vector2 offset) : base(data.Position + offset) {
@@ -114,27 +113,18 @@ public class Demon : Actor {
         Add(eyes = new Image(GFX.Game["objects/rushHelper/demon/eyes"]));
         eyes.CenterOrigin();
 
-        if (data.Bool("grounded")) {
-            feet = new Image(GFX.Game["objects/rushHelper/demon/feet"]);
-            
-            Add(feet);
-            feet.CenterOrigin();
-            feet.Color = outline.Color;
-        }
+        Add(feet = new Image(GFX.Game["objects/rushHelper/demon/feet"]));
+        feet.CenterOrigin();
+        feet.Color = outline.Color;
         
         Add(sine = new SineWave(0.6f));
         sine.Randomize();
         
         Add(new VertexLight(Color.White, 1f, 32, 64));
         Add(new PlayerCollider(OnPlayer));
+    }
 
-        UpdateVisual();
-    }
-    
-    public override void Added(Scene scene) {
-        base.Added(scene);
-        level = scene as Level;
-    }
+    public override void Awake(Scene scene) => UpdateVisual();
 
     public override void Update() {
         base.Update();
@@ -175,6 +165,7 @@ public class Demon : Actor {
 
     private void UpdateVisual() {
         body.Y = outline.Y = sine.Value;
+        feet.Visible = alive && OnGround();
 
         var player = Scene?.Tracker.GetEntity<Player>();
 
@@ -195,9 +186,9 @@ public class Demon : Actor {
         body.Stop();
         body.Texture = GFX.Game["objects/rushHelper/demon/shatter"];
         outline.Visible = false;
+        feet.Visible = false;
 
-        if (feet != null)
-            feet.Visible = false;
+        var level = (Level) Scene;
         
         Add(new Coroutine(Util.AfterFrame(() => {
             float angle = getKillParticlesAngle();
