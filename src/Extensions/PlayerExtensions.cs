@@ -11,32 +11,32 @@ namespace Celeste.Mod.RushHelper;
 
 public static class PlayerExtensions {
     private const float USE_CARD_COOLDOWN = 0.1f;
-    private const float YELLOW_BOUNCE_MIN_X = 90f;
-    private const float YELLOW_BOUNCE_ADD_X = 40f;
-    private const float YELLOW_BOUNCE_MIN_Y = -220f;
-    private const float YELLOW_BOUNCE_ADD_Y = -80f;
-    private const float YELLOW_BOUNCE_VAR_JUMP_TIME = 0.15f;
-    private const float BLUE_DASH_SPEED = 720f;
-    private const float BLUE_DASH_END_SPEED = 240f;
-    private const float BLUE_DASH_DURATION = 0.15f;
-    private const float BLUE_DASH_ALLOW_JUMP_AT = 0.05f;
-    private const float BLUE_DASH_HYPER_GRACE_TIME = 0.05f;
-    private const float GREEN_DIVE_FALL_SPEED = 420f;
-    private const float GREEN_DIVE_LAND_SPEED = 180f;
-    private const float GREEN_DIVE_LAND_KILL_RADIUS = 48f;
-    private static readonly Vector2 RED_BOOST_DASH_SPEED = new(280f, 240f);
-    private const float RED_BOOST_DASH_DURATION = 0.15f;
+    private const float YELLOW_MIN_X = 90f;
+    private const float YELLOW_ADD_X = 40f;
+    private const float YELLOW_MIN_Y = -220f;
+    private const float YELLOW_ADD_Y = -80f;
+    private const float YELLOW_VAR_JUMP_TIME = 0.15f;
+    private const float BLUE_SPEED = 720f;
+    private const float BLUE_END_SPEED = 240f;
+    private const float BLUE_DURATION = 0.15f;
+    private const float BLUE_ALLOW_JUMP_AT = 0.05f;
+    private const float BLUE_HYPER_GRACE_TIME = 0.05f;
+    private const float GREEN_FALL_SPEED = 360f;
+    private const float GREEN_LAND_SPEED = 90f;
+    private const float GREEN_LAND_KILL_RADIUS = 48f;
+    private const float GREEN_ALLOW_CANCEL_AT = 0.1f;
+    private static readonly Vector2 RED_DASH_SPEED = new(280f, 240f);
+    private const float RED_DASH_DURATION = 0.15f;
     private const float RED_BOOST_DURATION = 1f;
-    private const float RED_BOOST_AIR_FRICTION_MULTIPLIER = 0.4f;
-    private const float WHITE_DASH_SPEED = 325f;
-    private const float WHITE_DASH_REDIRECT_ADD_SPEED = 40f;
-    private const float WHITE_DASH_JUMP_GRACE_TIME = 0.05f;
-    private const float GROUND_BOOST_CROUCH_FRICTION_MULTIPLIER = 0.5f;
-    private const float GROUND_BOOST_FRICTION_MULTIPLIER = 0.05f;
-    private const float GROUND_BOOST_SPEED = 280f;
-    private const float GROUND_BOOST_ACCELERATION = 650f;
+    private const float RED_FRICTION_MULTIPLIER = 0.5f;
+    private const float RED_WALL_JUMP_ADD_SPEED = 40f;
+    private const float WHITE_SPEED = 325f;
+    private const float WHITE_REDIRECT_ADD_SPEED = 40f;
+    private const float WHITE_JUMP_GRACE_TIME = 0.05f;
+    private const float SURF_SPEED = 280f;
+    private const float SURF_ACCELERATION = 650f;
 
-    private static readonly ParticleType RED_BOOST_PARTICLE = new() {
+    private static readonly ParticleType RED_PARTICLE = new() {
         Color = Color.Red,
         Color2 = Color.Orange,
         ColorMode = ParticleType.ColorModes.Choose,
@@ -60,12 +60,9 @@ public static class PlayerExtensions {
         SpeedMax = 250f,
         DirectionRange = 0.7f
     };
-
-    private static IDetour IL_Celeste_Player_orig_Update;
     
     public static void Load() {
         On.Celeste.Player.Update += Player_Update;
-        IL_Celeste_Player_orig_Update = new ILHook(typeof(Player).GetMethodUnconstrained("orig_Update"), Player_orig_Update_il);
         On.Celeste.Player.OnCollideH += Player_OnCollideH;
         IL.Celeste.Player.OnCollideH += Player_OnCollideH_il;
         On.Celeste.Player.OnCollideV += Player_OnCollideV;
@@ -82,7 +79,6 @@ public static class PlayerExtensions {
 
     public static void Unload() {
         On.Celeste.Player.Update -= Player_Update;
-        IL_Celeste_Player_orig_Update.Dispose();
         IL.Celeste.Player.OnCollideH -= Player_OnCollideH_il;
         IL.Celeste.Player.OnCollideV -= Player_OnCollideV_il;
         IL.Celeste.Player.BeforeDownTransition -= Player_BeforeDownTransition_il;
@@ -112,12 +108,13 @@ public static class PlayerExtensions {
         cardInventory.Reset();
         extData.CardInventoryIndicator.UpdateInventory(cardInventory);
         extData.UseCardCooldown = 0f;
-        extData.BlueDashHyperTimePassed = false;
+        extData.BlueHyperTimePassed = false;
+        extData.GreenCancelTimePassed = false;
         extData.RedBoostTimer = 0f;
-        extData.RedBoostParticleEmitter.Active = false;
-        extData.RedBoostSoundSource.Stop();
-        extData.WhiteDashRedirect = false;
-        extData.WhiteDashSoundSource.Stop();
+        extData.RedParticleEmitter.Active = false;
+        extData.RedSoundSource.Stop();
+        extData.WhiteRedirect = false;
+        extData.WhiteSoundSource.Stop();
         extData.CustomTrailTimer = 0f;
         extData.Surfing = false;
         extData.SurfParticleEmitter.Active = false;
@@ -147,15 +144,15 @@ public static class PlayerExtensions {
         if (!player.DashAttacking
             && extData.RedBoostTimer == 0f
             && state != 2
-            && state != extData.BlueDashIndex
-            && state != extData.GreenDiveIndex
-            && state != extData.WhiteDashIndex)
+            && state != extData.BlueIndex
+            && state != extData.GreenIndex
+            && state != extData.WhiteIndex)
             return false;
 
-        if (state == extData.BlueDashIndex)
-            dynamicData.Set("jumpGraceTimer", BLUE_DASH_HYPER_GRACE_TIME);
-        else if (state == extData.WhiteDashIndex) {
-            dynamicData.Set("jumpGraceTimer", WHITE_DASH_JUMP_GRACE_TIME);
+        if (state == extData.BlueIndex)
+            dynamicData.Set("jumpGraceTimer", BLUE_HYPER_GRACE_TIME);
+        else if (state == extData.WhiteIndex) {
+            dynamicData.Set("jumpGraceTimer", WHITE_JUMP_GRACE_TIME);
             dynamicData.Set("dreamJump", true);
             player.StateMachine.State = 0;
         }
@@ -181,22 +178,22 @@ public static class PlayerExtensions {
         
         var level = (Level) player.Scene;
         
-        player.Add(extData.RedBoostParticleEmitter = new SmoothParticleEmitter(level.ParticlesFG, RED_BOOST_PARTICLE, Vector2.Zero, 6f * Vector2.One, 0f));
-        extData.RedBoostParticleEmitter.Active = false;
+        player.Add(extData.RedParticleEmitter = new SmoothParticleEmitter(level.ParticlesFG, RED_PARTICLE, Vector2.Zero, 6f * Vector2.One, 0f));
+        extData.RedParticleEmitter.Active = false;
         
         player.Add(extData.SurfParticleEmitter = new SmoothParticleEmitter(level.ParticlesFG, SURF_PARTICLE, Vector2.Zero, 2f * Vector2.One, 0f));
         extData.SurfParticleEmitter.Active = false;
         
-        player.Add(extData.RedBoostSoundSource = new SoundSource());
-        player.Add(extData.WhiteDashSoundSource = new SoundSource());
+        player.Add(extData.RedSoundSource = new SoundSource());
+        player.Add(extData.WhiteSoundSource = new SoundSource());
         player.Add(extData.SurfSoundSource = new SoundSource());
 
         var stateMachine = player.StateMachine;
 
-        extData.BlueDashIndex = stateMachine.AddState(player.BlueDashUpdate, player.BlueDashCoroutine, null, player.BlueDashEnd);
-        extData.GreenDiveIndex = stateMachine.AddState(player.GreenDiveUpdate);
-        extData.RedBoostDashIndex = stateMachine.AddState(player.RedBoostDashUpdate, player.RedBoostDashCoroutine);
-        extData.WhiteDashIndex = stateMachine.AddState(player.WhiteDashUpdate, player.WhiteDashCoroutine, null, player.WhiteDashEnd);
+        extData.BlueIndex = stateMachine.AddState(player.BlueUpdate, player.BlueCoroutine, null, player.BlueEnd);
+        extData.GreenIndex = stateMachine.AddState(player.GreenUpdate, player.GreenCoroutine);
+        extData.RedIndex = stateMachine.AddState(player.RedUpdate, player.RedCoroutine);
+        extData.WhiteIndex = stateMachine.AddState(player.WhiteUpdate, player.WhiteCoroutine, null, player.WhiteEnd);
     }
 
     private static bool TryGetData(this Player player, out DynamicData dynamicData, out Data extData) {
@@ -244,22 +241,22 @@ public static class PlayerExtensions {
         player.Add(new Coroutine(Util.NextFrame(() => {
             var dynamicData = DynamicData.For(player);
             int moveX = Input.MoveX.Value;
-            float newSpeedX = previousSpeed.X + moveX * YELLOW_BOUNCE_ADD_X;
+            float newSpeedX = previousSpeed.X + moveX * YELLOW_ADD_X;
 
-            if (moveX != 0 && moveX * newSpeedX < YELLOW_BOUNCE_MIN_X)
-                newSpeedX = moveX * YELLOW_BOUNCE_MIN_X;
+            if (moveX != 0 && moveX * newSpeedX < YELLOW_MIN_X)
+                newSpeedX = moveX * YELLOW_MIN_X;
 
-            float newSpeedY = previousSpeed.Y + YELLOW_BOUNCE_ADD_Y;
+            float newSpeedY = previousSpeed.Y + YELLOW_ADD_Y;
 
-            if (newSpeedY > YELLOW_BOUNCE_MIN_Y)
-                newSpeedY = YELLOW_BOUNCE_MIN_Y;
+            if (newSpeedY > YELLOW_MIN_Y)
+                newSpeedY = YELLOW_MIN_Y;
             
             player.Speed.X = newSpeedX;
             player.Speed.Y = newSpeedY;
             player.AutoJump = true;
             player.AutoJumpTimer = 0f;
             dynamicData.Set("varJumpSpeed", newSpeedY);
-            dynamicData.Set("varJumpTimer", YELLOW_BOUNCE_VAR_JUMP_TIME);
+            dynamicData.Set("varJumpTimer", YELLOW_VAR_JUMP_TIME);
         })));
 
         return 0;
@@ -268,24 +265,25 @@ public static class PlayerExtensions {
     private static int UseBlueCard(this Player player) {
         player.GetData(out _, out var extData);
         player.PrepareForCustomDash();
-        extData.BlueDashHyperTimePassed = false;
+        extData.BlueHyperTimePassed = false;
         extData.CustomTrailTimer = 0.016f;
         player.Sprite.Play("dash");
         Audio.Play("event:/rushHelper/game/blue_dash", player.Position);
         Celeste.Freeze(0.05f);
 
-        return extData.BlueDashIndex;
+        return extData.BlueIndex;
     }
 
     private static int UseGreenCard(this Player player) {
         player.GetData(out _, out var extData);
         player.PrepareForCustomDash();
-        player.Speed = new Vector2(0f, GREEN_DIVE_FALL_SPEED);
+        extData.GreenCancelTimePassed = false;
         extData.CustomTrailTimer = 0.016f;
         player.Sprite.Play("fallFast");
         Audio.Play(SFX.game_05_crackedwall_vanish, player.Position);
+        Celeste.Freeze(0.05f);
 
-        return extData.GreenDiveIndex;
+        return extData.GreenIndex;
     }
 
     private static int UseRedCard(this Player player) {
@@ -296,7 +294,7 @@ public static class PlayerExtensions {
         Audio.Play("event:/rushHelper/game/red_boost_dash", player.Position);
         Celeste.Freeze(0.05f);
 
-        return extData.RedBoostDashIndex;
+        return extData.RedIndex;
     }
 
     private static int UseWhiteCard(this Player player) {
@@ -306,12 +304,12 @@ public static class PlayerExtensions {
         player.Sprite.Play("dreamDashLoop");
         player.Hair.Visible = false;
         Audio.Play(SFX.char_bad_dash_red_right, player.Position);
-        extData.WhiteDashSoundSource.Play(SFX.char_mad_dreamblock_travel);
-        extData.WhiteDashSoundSource.DisposeOnTransition = false;
+        extData.WhiteSoundSource.Play(SFX.char_mad_dreamblock_travel);
+        extData.WhiteSoundSource.DisposeOnTransition = false;
         extData.CustomTrailTimer = 0.016f;
         Celeste.Freeze(0.05f);
 
-        return extData.WhiteDashIndex;
+        return extData.WhiteIndex;
     }
 
     private static void ResetStateValues(this Player player) {
@@ -333,7 +331,8 @@ public static class PlayerExtensions {
     }
 
     private static void PrepareForCustomDash(this Player player) {
-        var dynamicData = DynamicData.For(player);
+        player.GetData(out var dynamicData, out var extData);
+        
         bool onGround = dynamicData.Get<bool>("onGround");
 
         player.ResetStateValues();
@@ -341,6 +340,7 @@ public static class PlayerExtensions {
         dynamicData.Set("dashStartedOnGround", onGround);
         player.Speed = Vector2.Zero;
         player.DashDir = Vector2.Zero;
+        extData.RedBoostTimer = 0f;
 
         if (!onGround && player.Ducking && player.CanUnDuck)
             player.Ducking = false;
@@ -383,13 +383,13 @@ public static class PlayerExtensions {
 
         int state = player.StateMachine.State;
 
-        return state == extData.BlueDashIndex
-               || state == extData.GreenDiveIndex
-               || state == extData.RedBoostDashIndex
-               || state == extData.WhiteDashIndex;
+        return state == extData.BlueIndex
+               || state == extData.GreenIndex
+               || state == extData.RedIndex
+               || state == extData.WhiteIndex;
     }
 
-    private static bool BlueDashGroundCheck(this Player player) {
+    private static bool BlueGroundCheck(this Player player) {
         int checkDistance = 5;
         
         foreach (var entity in player.Scene.Tracker.GetEntities<Spikes>()) {
@@ -409,15 +409,15 @@ public static class PlayerExtensions {
         return !dynamicData.Invoke<bool>("DashCorrectCheck", Vector2.UnitY * checkDistance);
     }
 
-    private static int BlueDashUpdate(this Player player) {
+    private static int BlueUpdate(this Player player) {
         player.GetData(out var dynamicData, out var extData);
         player.UpdateTrail(Color.Blue, 0.016f, 0.66f);
 
-        if (dynamicData.Get<float>("jumpGraceTimer") > BLUE_DASH_HYPER_GRACE_TIME || player.BlueDashGroundCheck())
-            dynamicData.Set("jumpGraceTimer", BLUE_DASH_HYPER_GRACE_TIME);
+        if (dynamicData.Get<float>("jumpGraceTimer") > BLUE_HYPER_GRACE_TIME || player.BlueGroundCheck())
+            dynamicData.Set("jumpGraceTimer", BLUE_HYPER_GRACE_TIME);
 
         if (Input.Jump.Pressed
-            && extData.BlueDashHyperTimePassed
+            && extData.BlueHyperTimePassed
             && dynamicData.Get<float>("jumpGraceTimer") > 0f) {
             player.Ducking = true;
             player.StateMachine.State = 0;
@@ -431,10 +431,10 @@ public static class PlayerExtensions {
                 player.MoveVExact((int) (jumpThru.Top - player.Bottom));
         }
 
-        return extData.BlueDashIndex;
+        return extData.BlueIndex;
     }
 
-    private static IEnumerator BlueDashCoroutine(this Player player) {
+    private static IEnumerator BlueCoroutine(this Player player) {
         yield return null;
 
         player.GetData(out var dynamicData, out var extData);
@@ -446,27 +446,28 @@ public static class PlayerExtensions {
 
         player.DashDir.X = aimX;
         player.DashDir.Y = 0f;
-        player.Speed.X = aimX * BLUE_DASH_SPEED;
+        player.Speed.X = aimX * BLUE_SPEED;
         player.Speed.Y = 0f;
+        player.Facing = (Facings) aimX;
         ((Level) player.Scene).Displacement.AddBurst(player.Center, 0.4f, 8f, 64f, 0.5f, Ease.QuadOut, Ease.QuadOut);
         SlashFx.Burst(player.Center, player.DashDir.Angle());
         
-        for (float timer = 0f; timer < BLUE_DASH_DURATION; timer += Engine.DeltaTime) {
-            extData.BlueDashHyperTimePassed = timer >= BLUE_DASH_ALLOW_JUMP_AT;
-            player.Sprite.Scale = Util.PreserveArea(Vector2.Lerp(new Vector2(2f, 0.5f), Vector2.One, timer / BLUE_DASH_DURATION));
+        for (float timer = 0f; timer < BLUE_DURATION; timer += Engine.DeltaTime) {
+            extData.BlueHyperTimePassed = timer >= BLUE_ALLOW_JUMP_AT;
+            player.Sprite.Scale = Util.PreserveArea(Vector2.Lerp(new Vector2(2f, 0.5f), Vector2.One, timer / BLUE_DURATION));
 
             yield return null;
         }
         
-        player.Speed.X = player.DashDir.X * BLUE_DASH_END_SPEED;
+        player.Speed.X = player.DashDir.X * BLUE_END_SPEED;
         player.StateMachine.State = 0;
     }
 
-    private static void BlueDashEnd(this Player player) {
+    private static void BlueEnd(this Player player) {
         player.GetData(out var dynamicData, out _);
         
-        if (Math.Abs(player.Speed.X) > BLUE_DASH_END_SPEED)
-            player.Speed.X = Math.Sign(player.Speed.X) * BLUE_DASH_END_SPEED;
+        if (Math.Abs(player.Speed.X) > BLUE_END_SPEED)
+            player.Speed.X = Math.Sign(player.Speed.X) * BLUE_END_SPEED;
 
         float wallSpeedRetained = dynamicData.Get<float>("wallSpeedRetained");
         
@@ -482,21 +483,47 @@ public static class PlayerExtensions {
         player.Sprite.Scale = Vector2.One;
     }
 
-    private static int GreenDiveUpdate(this Player player) {
-        if (player.CanDash) {
+    private static int GreenUpdate(this Player player) {
+        player.GetData(out var dynamicData, out var extData);
+
+        if (Input.Jump.Pressed) {
+            if (dynamicData.Invoke<bool>("WallJumpCheck", 1)) {
+                dynamicData.Invoke("WallJump", -1);
+
+                return 0;
+            }
+            
+            if (dynamicData.Invoke<bool>("WallJumpCheck", -1)) {
+                dynamicData.Invoke("WallJump", 1);
+
+                return 0;
+            }
+        }
+        
+        if (extData.GreenCancelTimePassed && player.CanDash) {
             player.Sprite.Scale = Vector2.One;
             
             return player.StartDash();
         }
         
-        player.GetData(out _, out var extData);
         player.UpdateTrail(Color.Green, 0.016f, 0.33f);
         player.Sprite.Scale = new Vector2(0.5f, 2f);
         
-        return extData.GreenDiveIndex;
+        return extData.GreenIndex;
     }
 
-    private static int RedBoostDashUpdate(this Player player) {
+    private static IEnumerator GreenCoroutine(this Player player) {
+        yield return null;
+        
+        player.Speed = new Vector2(0f, GREEN_FALL_SPEED);
+
+        yield return GREEN_ALLOW_CANCEL_AT;
+        
+        player.GetData(out _, out var extData);
+        extData.GreenCancelTimePassed = true;
+    }
+
+    private static int RedUpdate(this Player player) {
         player.GetData(out var dynamicData, out var extData);
         
         if (Input.Jump.Pressed) {
@@ -526,69 +553,70 @@ public static class PlayerExtensions {
             }
         }
 
-        return extData.RedBoostDashIndex;
+        return extData.RedIndex;
     }
 
-    private static IEnumerator RedBoostDashCoroutine(this Player player) {
+    private static IEnumerator RedCoroutine(this Player player) {
         yield return null;
         
         player.GetData(out var dynamicData, out var extData);
         ((Level) player.Scene).Displacement.AddBurst(player.Center, 0.4f, 8f, 64f, 0.5f, Ease.QuadOut, Ease.QuadOut);
         extData.RedBoostTimer = RED_BOOST_DURATION;
-        extData.RedBoostSoundSource.Play("event:/rushHelper/game/red_boost_sustain");
-        extData.RedBoostSoundSource.DisposeOnTransition = false;
+        extData.RedSoundSource.Play("event:/rushHelper/game/red_boost_sustain");
+        extData.RedSoundSource.DisposeOnTransition = false;
 
         var dashDir = dynamicData.Invoke<Vector2>("CorrectDashPrecision", dynamicData.Get<Vector2>("lastAim"));
         
+        var newSpeed = RED_DASH_SPEED * dashDir;
+        var beforeDashSpeed = dynamicData.Get<Vector2>("beforeDashSpeed");
+        
+        if (Math.Sign(newSpeed.X) == Math.Sign(beforeDashSpeed.X) && Math.Abs(beforeDashSpeed.X) > Math.Abs(newSpeed.X))
+            newSpeed.X = beforeDashSpeed.X;
+        
+        if (Math.Sign(newSpeed.Y) == Math.Sign(beforeDashSpeed.Y) && Math.Abs(beforeDashSpeed.Y) > Math.Abs(newSpeed.Y))
+            newSpeed.Y = beforeDashSpeed.Y;
+
         if (dynamicData.Get<bool>("onGround") && dashDir.X != 0f && dashDir.Y > 0f) {
             dashDir.X = Math.Sign(dashDir.X);
             dashDir.Y = 0f;
             player.Ducking = true;
+            newSpeed.X *= 1.2f;
+            newSpeed.Y = 0f;
         }
         
-        player.DashDir = dashDir;
-        SlashFx.Burst(player.Center, player.DashDir.Angle());
-        
-        var newSpeed = RED_BOOST_DASH_SPEED * dashDir;
-        var beforeDashSpeed = dynamicData.Get<Vector2>("beforeDashSpeed");
-        
-        if (Math.Sign(newSpeed.X) == Math.Sign(beforeDashSpeed.X) && Math.Abs(newSpeed.X) < Math.Abs(beforeDashSpeed.X))
-            newSpeed.X = beforeDashSpeed.X;
-        
-        if (Math.Sign(newSpeed.Y) == Math.Sign(beforeDashSpeed.Y) && Math.Abs(newSpeed.Y) < Math.Abs(beforeDashSpeed.Y))
-            newSpeed.Y = beforeDashSpeed.Y;
-
         player.Speed = newSpeed;
+        player.DashDir = dashDir;
+        SlashFx.Burst(player.Center, dashDir.Angle());
 
-        yield return RED_BOOST_DASH_DURATION;
+        yield return RED_DASH_DURATION;
 
         player.StateMachine.State = 0;
     }
 
-    private static int WhiteDashUpdate(this Player player) {
+    private static int WhiteUpdate(this Player player) {
         if (player.CanDash)
             return player.StartDash();
 
         player.GetData(out var dynamicData, out var extData);
         player.UpdateTrail(Color.White, 0.016f, 0.33f);
 
-        if (extData.WhiteDashRedirect) {
+        if (extData.WhiteRedirect) {
             var direction = dynamicData.Invoke<Vector2>("CorrectDashPrecision", dynamicData.Get<Vector2>("lastAim"));
-            float dashSpeed = dynamicData.Get<Vector2>("beforeDashSpeed").Length() + WHITE_DASH_REDIRECT_ADD_SPEED;
+            float dashSpeed = dynamicData.Get<Vector2>("beforeDashSpeed").Length() + WHITE_REDIRECT_ADD_SPEED;
 
-            if (dashSpeed < WHITE_DASH_SPEED)
-                dashSpeed = WHITE_DASH_SPEED;
+            if (dashSpeed < WHITE_SPEED)
+                dashSpeed = WHITE_SPEED;
             
             player.DoWhiteDash(direction, dashSpeed);
-            extData.WhiteDashRedirect = false;
+            extData.WhiteRedirect = false;
 
-            return extData.WhiteDashIndex;
+            return extData.WhiteIndex;
         }
 
         var cardInventory = extData.CardInventory;
             
         if (cardInventory.PeekCard() != AbilityCardType.White || !player.ShouldUseCard())
-            return extData.WhiteDashIndex;
+            return extData.WhiteIndex;
 
         player.PopCard();
         dynamicData.Set("beforeDashSpeed", player.Speed);
@@ -597,19 +625,19 @@ public static class PlayerExtensions {
         player.Sprite.Scale = Vector2.One;
         Audio.Play(SFX.char_bad_dash_red_right, player.Position);
         Celeste.Freeze(0.033f);
-        extData.WhiteDashRedirect = true;
+        extData.WhiteRedirect = true;
 
-        return extData.WhiteDashIndex;
+        return extData.WhiteIndex;
     }
 
-    private static IEnumerator WhiteDashCoroutine(this Player player) {
+    private static IEnumerator WhiteCoroutine(this Player player) {
         yield return null;
         
         player.GetData(out var dynamicData, out _);
         
         var direction = dynamicData.Invoke<Vector2>("CorrectDashPrecision", dynamicData.Get<Vector2>("lastAim"));
         float beforeDashSpeed = dynamicData.Get<Vector2>("beforeDashSpeed").X;
-        float dashSpeed = WHITE_DASH_SPEED;
+        float dashSpeed = WHITE_SPEED;
 
         if (direction.X != 0f && Math.Sign(direction.X) == Math.Sign(beforeDashSpeed) && Math.Abs(beforeDashSpeed) > dashSpeed)
             dashSpeed = Math.Abs(beforeDashSpeed);
@@ -617,40 +645,23 @@ public static class PlayerExtensions {
         player.DoWhiteDash(direction, dashSpeed);
     }
 
-    private static void WhiteDashEnd(this Player player) {
+    private static void WhiteEnd(this Player player) {
         player.GetData(out _, out var extData);
         player.Sprite.Scale = Vector2.One;
         player.Sprite.Rotation = 0f;
         player.Sprite.Origin.Y = 32f;
         player.Sprite.Position.Y = 0f;
         player.Hair.Visible = true;
-        extData.WhiteDashSoundSource.Stop();
+        extData.WhiteSoundSource.Stop();
         Audio.Play(SFX.char_bad_dreamblock_exit);
         Audio.Play(SFX.game_05_redbooster_end);
-    }
-
-    private static void BeforeBaseUpdate(Player player) {
-        if (player.CollideCheck<SurfPlatform>(player.Position + Vector2.UnitY)) {
-            player.GetOrCreateData(out _, out var extData);
-
-            if (extData.Surfing)
-                return;
-            
-            Audio.Play(SFX.char_mad_water_in);
-            extData.SurfSoundSource.Play("event:/rushHelper/game/surf", "fade", MathHelper.Min(Math.Abs(player.Speed.X) / GROUND_BOOST_SPEED, 1f));
-            extData.Surfing = true;
-        }
-        else if (player.TryGetData(out _, out var extData) && extData.Surfing) {
-            extData.SurfSoundSource.Stop();
-            extData.Surfing = false;
-        }
     }
 
     private static void OnTrueCollideH(Player player) {
         if (!player.TryGetData(out _, out var extData))
             return;
         
-        if (player.StateMachine.State == extData.WhiteDashIndex)
+        if (player.StateMachine.State == extData.WhiteIndex)
             player.StateMachine.State = 0;
     }
 
@@ -660,8 +671,8 @@ public static class PlayerExtensions {
 
         int state = player.StateMachine.State;
 
-        if (state == extData.GreenDiveIndex) {
-            player.Speed.X = Math.Sign(Input.MoveX.Value) * GREEN_DIVE_LAND_SPEED;
+        if (state == extData.GreenIndex) {
+            player.Speed.X = Math.Sign(Input.MoveX.Value) * GREEN_LAND_SPEED;
             player.Sprite.Scale = new Vector2(1.5f, 0.75f);
             Audio.Play(SFX.game_gen_fallblock_impact, player.Position);
             Celeste.Freeze(0.05f);
@@ -674,14 +685,14 @@ public static class PlayerExtensions {
             level.Particles.Emit(Player.P_SummitLandB, 8, player.BottomCenter + Vector2.UnitX * 2f, Vector2.UnitX * 2f, -0.2617994f);
             level.Displacement.AddBurst(player.Center, 0.4f, 16f, 128f, 1f, Ease.QuadOut, Ease.QuadOut);
 
-            int dashRestores = Demon.KillInRadius(player.Scene, player.Center, GREEN_DIVE_LAND_KILL_RADIUS);
+            int dashRestores = Demon.KillInRadius(player.Scene, player.Center, GREEN_LAND_KILL_RADIUS);
 
             player.RefillDashes(dashRestores);
 
             if (dashRestores >= 2)
                 Audio.Play(SFX.game_10_pinkdiamond_touch, player.Position);
         }
-        else if (state == extData.WhiteDashIndex)
+        else if (state == extData.WhiteIndex)
             player.StateMachine.State = 0;
     }
 
@@ -691,17 +702,7 @@ public static class PlayerExtensions {
 
         int state = player.StateMachine.State;
 
-        return state == extData.GreenDiveIndex || state == extData.WhiteDashIndex;
-    }
-
-    private static float GetUltraBoostSpeed(float defaultSpeed, Player player) {
-        if (!player.TryGetData(out _, out var extData) || player.StateMachine.State != extData.RedBoostDashIndex)
-            return defaultSpeed;
-        
-        if (Math.Abs(player.Speed.X) < RED_BOOST_DASH_SPEED.X)
-            return player.DashDir.X * RED_BOOST_DASH_SPEED.X;
-
-        return player.Speed.X;
+        return state == extData.GreenIndex || state == extData.WhiteIndex;
     }
 
     private static int UseCard(Player player) => player.PopCard() switch {
@@ -713,17 +714,43 @@ public static class PlayerExtensions {
         _ => throw new ArgumentOutOfRangeException()
     };
 
-    private static float GetCrouchFriction(float defaultFriction, Player player)
-        => player.TryGetData(out _, out var extData) && (extData.RedBoostTimer > 0f || extData.Surfing) ? defaultFriction * GROUND_BOOST_CROUCH_FRICTION_MULTIPLIER : defaultFriction;
+    private static float MultiplyAirFriction(float value, Player player)
+        => player.TryGetData(out _, out var extData) && extData.RedBoostTimer > 0f ? value * RED_FRICTION_MULTIPLIER : value;
 
-    private static float GetAirFrictionMultiplier(float defaultMultiplier, Player player)
-        => player.TryGetData(out _, out var extData) && extData.RedBoostTimer > 0f ? RED_BOOST_AIR_FRICTION_MULTIPLIER : defaultMultiplier;
+    private static float MultiplyGroundFriction(float value, Player player) {
+        if (!player.TryGetData(out var dynamicData, out var extData))
+            return value;
 
-    private static float GetGroundFrictionMultiplier(float defaultMultiplier, Player player)
-        => player.TryGetData(out _, out var extData) && (extData.RedBoostTimer > 0f || extData.Surfing) ? GROUND_BOOST_FRICTION_MULTIPLIER : defaultMultiplier;
+        int moveX = dynamicData.Get<int>("moveX");
+
+        if (moveX != 0 && extData.Surfing && !player.Ducking && moveX == Math.Sign(player.Speed.X))
+            return 0f;
+
+        if (extData.RedBoostTimer > 0f)
+            return value * RED_FRICTION_MULTIPLIER;
+
+        return value;
+    }
 
     private static void Player_Update(On.Celeste.Player.orig_Update update, Player player) {
-        if (!player.TryGetData(out var dynamicData, out var extData)) {
+        player.GetData(out var dynamicData, out var extData);
+        
+        if (player.CollideCheck<SurfPlatform>(player.Position + Vector2.UnitY)) {
+            if (extData == null)
+                player.GetOrCreateData(out _, out extData);
+
+            if (!extData.Surfing) {
+                Audio.Play(SFX.char_mad_water_in);
+                extData.SurfSoundSource.Play("event:/rushHelper/game/surf", "fade", MathHelper.Min(Math.Abs(player.Speed.X) / SURF_SPEED, 1f));
+                extData.Surfing = true;
+            }
+        }
+        else if (extData != null && extData.Surfing) {
+            extData.SurfSoundSource.Stop();
+            extData.Surfing = false;
+        }
+        
+        if (extData == null) {
             update(player);
             
             return;
@@ -741,10 +768,10 @@ public static class PlayerExtensions {
 
         update(player);
 
-        var redBoostParticleEmitter = extData.RedBoostParticleEmitter;
+        var redBoostParticleEmitter = extData.RedParticleEmitter;
         
         if (extData.RedBoostTimer > 0f && player.Speed.Length() > 64f) {
-            redBoostParticleEmitter.Interval = 0.008f / Math.Min(Math.Abs(player.Speed.Length()) / RED_BOOST_DASH_SPEED.X, 1f);
+            redBoostParticleEmitter.Interval = 0.008f / Math.Min(Math.Abs(player.Speed.Length()) / RED_DASH_SPEED.X, 1f);
             redBoostParticleEmitter.Position = -8f * Vector2.UnitY;
             redBoostParticleEmitter.Start();
         }
@@ -754,7 +781,7 @@ public static class PlayerExtensions {
         var surfParticleEmitter = extData.SurfParticleEmitter;
 
         if (extData.Surfing && dynamicData.Get<bool>("onGround") && Math.Abs(player.Speed.X) > 64f) {
-            surfParticleEmitter.Interval = 0.008f / Math.Min(Math.Abs(player.Speed.X) / GROUND_BOOST_SPEED, 1f);
+            surfParticleEmitter.Interval = 0.008f / Math.Min(Math.Abs(player.Speed.X) / SURF_SPEED, 1f);
             surfParticleEmitter.Position = new Vector2(-4f * Math.Sign(player.Speed.X), -2f);
             surfParticleEmitter.Direction = -MathHelper.PiOver2 - 0.4f * Math.Sign(player.Speed.X);
             surfParticleEmitter.Start();
@@ -764,26 +791,15 @@ public static class PlayerExtensions {
 
         if (extData.RedBoostTimer > 0f)
             player.UpdateTrail(Color.Red * Math.Min(4f * extData.RedBoostTimer, 1f), 0.016f, 0.16f);
-        else if (extData.RedBoostSoundSource.Playing)
-            extData.RedBoostSoundSource.Stop();
+        else if (extData.RedSoundSource.Playing)
+            extData.RedSoundSource.Stop();
 
         if (extData.SurfSoundSource.Playing)
-            extData.SurfSoundSource.Param("fade", MathHelper.Min(Math.Abs(player.Speed.X) / GROUND_BOOST_SPEED, 1f));
-    }
-
-    private static void Player_orig_Update_il(ILContext il) {
-        var cursor = new ILCursor(il);
-
-        cursor.GotoNext(MoveType.AfterLabel,
-            instr => instr.OpCode == OpCodes.Ldarg_0,
-            instr => instr.MatchCall<Actor>(nameof(Actor.Update)));
-
-        cursor.Emit(OpCodes.Ldarg_0);
-        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(BeforeBaseUpdate)));
+            extData.SurfSoundSource.Param("fade", MathHelper.Min(Math.Abs(player.Speed.X) / SURF_SPEED, 1f));
     }
 
     private static void Player_OnCollideH(On.Celeste.Player.orig_OnCollideH onCollideH, Player player, CollisionData data) {
-        if (data.Hit is DashBlock dashBlock && player.TryGetData(out _, out var extData) && (extData.RedBoostTimer > 0f || player.StateMachine.State == extData.BlueDashIndex))
+        if (data.Hit is DashBlock dashBlock && player.TryGetData(out _, out var extData) && (extData.RedBoostTimer > 0f || player.StateMachine.State == extData.BlueIndex))
             dashBlock.Break(player.Center, data.Direction, true, true);
         else
             onCollideH(player, data);
@@ -810,7 +826,7 @@ public static class PlayerExtensions {
     }
 
     private static void Player_OnCollideV(On.Celeste.Player.orig_OnCollideV onCollideV, Player player, CollisionData data) {
-        if (data.Hit is DashBlock dashBlock && player.TryGetData(out _, out var extData) && (extData.RedBoostTimer > 0f || player.StateMachine.State == extData.GreenDiveIndex))
+        if (data.Hit is DashBlock dashBlock && player.TryGetData(out _, out var extData) && (extData.RedBoostTimer > 0f || player.StateMachine.State == extData.GreenIndex))
             dashBlock.Break(player.Center, data.Direction, true, true);
         else
             onCollideV(player, data);
@@ -828,12 +844,6 @@ public static class PlayerExtensions {
         cursor.Emit(OpCodes.Ldarg_0);
         cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(IsInCustomDash)));
         cursor.Emit(OpCodes.Brtrue_S, label);
-
-        cursor.GotoNext(instr => instr.MatchLdcR4(1.2f));
-        cursor.GotoNext(MoveType.After, instr => instr.OpCode == OpCodes.Mul);
-        
-        cursor.Emit(OpCodes.Ldarg_0);
-        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(GetUltraBoostSpeed)));
 
         cursor.Index = -1;
         cursor.MoveAfterLabels();
@@ -899,13 +909,13 @@ public static class PlayerExtensions {
         
         wallJump(player, dir);
 
+        var liftBoost = dynamicData.Get<Vector2>("LiftBoost");
+
         if (Math.Sign(Input.MoveX.Value) == dir)
-            player.Speed.X += dir * beforeSpeedX;
+            player.Speed.X = dir * Math.Max(130f, beforeSpeedX + RED_WALL_JUMP_ADD_SPEED) + liftBoost.X;
 
-        if (player.Speed.Y > beforeSpeedY)
-            player.Speed.Y = beforeSpeedY;
-
-        dynamicData.Set("varJumpTimer", 0f);
+        player.Speed.Y = Math.Min(-105f, beforeSpeedY) + liftBoost.Y;
+        dynamicData.Set("varJumpSpeed", player.Speed.Y);
     }
 
     private static int Player_NormalUpdate(On.Celeste.Player.orig_NormalUpdate normalUpdate, Player player) {
@@ -914,10 +924,10 @@ public static class PlayerExtensions {
         if (nextState != 0 || !player.TryGetData(out var dynamicData, out var extData))
             return nextState;
         
-        int moveX = Input.MoveX.Value;
+        int moveX = dynamicData.Get<int>("moveX");
         
-        if ((extData.RedBoostTimer > 0f || extData.Surfing) && dynamicData.Get<bool>("onGround") && !player.Ducking && moveX * player.Speed.X < GROUND_BOOST_SPEED)
-            player.Speed.X = Calc.Approach(player.Speed.X, moveX * GROUND_BOOST_SPEED, Engine.DeltaTime * GROUND_BOOST_ACCELERATION);
+        if (moveX != 0 && extData.Surfing && dynamicData.Get<bool>("onGround") && !player.Ducking && moveX * player.Speed.X < SURF_SPEED)
+            player.Speed.X = Calc.Approach(player.Speed.X, moveX * SURF_SPEED, Engine.DeltaTime * SURF_ACCELERATION);
 
         return 0;
     }
@@ -943,20 +953,23 @@ public static class PlayerExtensions {
         cursor.GotoNext(MoveType.After, instr => instr.MatchLdcR4(500f));
 
         cursor.Emit(OpCodes.Ldarg_0);
-        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(GetCrouchFriction)));
+        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(MultiplyGroundFriction)));
 
         cursor.GotoNext(MoveType.After, instr => instr.MatchLdcR4(0.65f));
 
         cursor.Emit(OpCodes.Ldarg_0);
-        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(GetAirFrictionMultiplier)));
+        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(MultiplyAirFriction)));
 
         cursor.GotoNext(MoveType.After, instr => instr.MatchLdcR4(1f));
 
         cursor.Emit(OpCodes.Ldarg_0);
-        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(GetGroundFrictionMultiplier)));
+        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(MultiplyGroundFriction)));
     }
 
     private static void Player_DashBegin(On.Celeste.Player.orig_DashBegin dashBegin, Player player) {
+        if (player.TryGetData(out _, out var extData))
+            extData.RedBoostTimer = 0f;
+        
         foreach (var entity in player.CollideAll<Demon>())
             ((Demon) entity).OnPlayer(player);
 
@@ -974,9 +987,9 @@ public static class PlayerExtensions {
 
         int state = player.StateMachine.State;
         
-        if (state == extData.BlueDashIndex)
+        if (state == extData.BlueIndex)
             player.Sprite.Play("dash");
-        else if (state == extData.RedBoostDashIndex) {
+        else if (state == extData.RedIndex) {
             if (player.Ducking)
                 player.Sprite.Play("duck");
             else
@@ -985,19 +998,20 @@ public static class PlayerExtensions {
     }
 
     private class Data {
-        public int BlueDashIndex;
-        public int GreenDiveIndex;
-        public int RedBoostDashIndex;
-        public int WhiteDashIndex;
+        public int BlueIndex;
+        public int GreenIndex;
+        public int RedIndex;
+        public int WhiteIndex;
         public CardInventory CardInventory = new();
         public CardInventoryIndicator CardInventoryIndicator;
         public float UseCardCooldown;
-        public bool BlueDashHyperTimePassed;
+        public bool BlueHyperTimePassed;
+        public bool GreenCancelTimePassed;
         public float RedBoostTimer;
-        public SmoothParticleEmitter RedBoostParticleEmitter;
-        public SoundSource RedBoostSoundSource;
-        public bool WhiteDashRedirect;
-        public SoundSource WhiteDashSoundSource;
+        public SmoothParticleEmitter RedParticleEmitter;
+        public SoundSource RedSoundSource;
+        public bool WhiteRedirect;
+        public SoundSource WhiteSoundSource;
         public float CustomTrailTimer;
         public bool Surfing;
         public SmoothParticleEmitter SurfParticleEmitter;
