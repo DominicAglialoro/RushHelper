@@ -4,13 +4,11 @@ using Microsoft.Xna.Framework;
 using Mono.Cecil.Cil;
 using Monocle;
 using MonoMod.Cil;
-using MonoMod.RuntimeDetour;
 using MonoMod.Utils;
 
 namespace Celeste.Mod.RushHelper;
 
 public static class PlayerExtensions {
-    private const float USE_CARD_COOLDOWN = 0.1f;
     private const float YELLOW_MIN_X = 90f;
     private const float YELLOW_ADD_X = 40f;
     private const float YELLOW_MIN_Y = -220f;
@@ -107,7 +105,6 @@ public static class PlayerExtensions {
 
         cardInventory.Reset();
         extData.CardInventoryIndicator.UpdateInventory(cardInventory);
-        extData.UseCardCooldown = 0f;
         extData.BlueHyperTimePassed = false;
         extData.GreenCancelTimePassed = false;
         extData.RedBoostTimer = 0f;
@@ -151,7 +148,7 @@ public static class PlayerExtensions {
 
         if (state == extData.BlueIndex)
             dynamicData.Set("jumpGraceTimer", BLUE_HYPER_GRACE_TIME);
-        else if (state == extData.WhiteIndex) {
+        else if (state == extData.WhiteIndex && player.DashDir.X != 0f) {
             dynamicData.Set("jumpGraceTimer", WHITE_JUMP_GRACE_TIME);
             dynamicData.Set("dreamJump", true);
             player.StateMachine.State = 0;
@@ -205,12 +202,10 @@ public static class PlayerExtensions {
     private static bool ShouldUseCard(this Player player) {
         if (!Input.Grab.Pressed
             || !player.TryGetData(out _, out var extData)
-            || extData.UseCardCooldown > 0f
             || extData.CardInventory.CardCount == 0)
             return false;
         
         Input.Grab.ConsumeBuffer();
-        extData.UseCardCooldown = USE_CARD_COOLDOWN;
 
         return true;
     }
@@ -389,31 +384,11 @@ public static class PlayerExtensions {
                || state == extData.WhiteIndex;
     }
 
-    private static bool BlueGroundCheck(this Player player) {
-        int checkDistance = 5;
-        
-        foreach (var entity in player.Scene.Tracker.GetEntities<Spikes>()) {
-            if (((Spikes) entity).Direction != Spikes.Directions.Up || !player.CollideCheck(entity, player.Position + Vector2.UnitY * 5f))
-                continue;
-
-            checkDistance = 3;
-
-            break;
-        }
-
-        if (!player.OnGround(checkDistance))
-            return false;
-        
-        player.GetData(out var dynamicData, out _);
-
-        return !dynamicData.Invoke<bool>("DashCorrectCheck", Vector2.UnitY * checkDistance);
-    }
-
     private static int BlueUpdate(this Player player) {
         player.GetData(out var dynamicData, out var extData);
         player.UpdateTrail(Color.Blue, 0.016f, 0.66f);
 
-        if (dynamicData.Get<float>("jumpGraceTimer") > BLUE_HYPER_GRACE_TIME || player.BlueGroundCheck())
+        if (dynamicData.Get<float>("jumpGraceTimer") > BLUE_HYPER_GRACE_TIME || player.OnGround(3))
             dynamicData.Set("jumpGraceTimer", BLUE_HYPER_GRACE_TIME);
 
         if (Input.Jump.Pressed
@@ -755,11 +730,6 @@ public static class PlayerExtensions {
             
             return;
         }
-        
-        extData.UseCardCooldown -= Engine.DeltaTime;
-
-        if (extData.UseCardCooldown < 0f)
-            extData.UseCardCooldown = 0f;
 
         extData.RedBoostTimer -= Engine.DeltaTime;
         
@@ -1004,7 +974,6 @@ public static class PlayerExtensions {
         public int WhiteIndex;
         public CardInventory CardInventory = new();
         public CardInventoryIndicator CardInventoryIndicator;
-        public float UseCardCooldown;
         public bool BlueHyperTimePassed;
         public bool GreenCancelTimePassed;
         public float RedBoostTimer;

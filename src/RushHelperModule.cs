@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Celeste.Mod.RushHelper;
+﻿namespace Celeste.Mod.RushHelper;
 
 public class RushHelperModule : EverestModule {
     public static RushHelperModule Instance { get; private set; }

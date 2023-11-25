@@ -6,8 +6,7 @@ entities.rushHelper/abilityCard.placements.name.white=Ability Card (White)
 
 entities.rushHelper/surfPlatform.placements.name.platform=Surf Platform
 
-entities.rushHelper/demon.placements.name.grounded=Demon (Grounded)
-entities.rushHelper/demon.placements.name.aerial=Demon (Aerial)
+entities.rushHelper/demon.placements.name.demon=Demon
 
 entities.rushHelper/rushGoal.placements.name.goal=Rush Goal
 

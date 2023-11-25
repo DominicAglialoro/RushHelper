@@ -6,7 +6,6 @@ namespace Celeste.Mod.RushHelper;
 
 [CustomEntity("rushHelper/rushLevelController"), Tracked]
 public class RushLevelController : Entity {
-    private DemonCounter demonCounter;
     private int remainingDemonCount;
     private bool demonKilledThisFrame;
 
@@ -15,9 +14,6 @@ public class RushLevelController : Entity {
     public override void Awake(Scene scene) {
         base.Awake(scene);
         remainingDemonCount = Scene.Tracker.CountEntities<Demon>();
-
-        if (remainingDemonCount > 0)
-            Scene.Add(demonCounter = new DemonCounter(remainingDemonCount));
     }
 
     public void DemonKilled() {
@@ -32,7 +28,6 @@ public class RushLevelController : Entity {
                 else
                     Util.PlaySound("event:/classic/sfx8", 2f);
                 
-                demonCounter?.UpdateDemonCount(remainingDemonCount);
                 demonKilledThisFrame = false;
             };
         }
