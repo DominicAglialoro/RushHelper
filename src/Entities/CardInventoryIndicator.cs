@@ -72,10 +72,10 @@ public class CardInventoryIndicator : Component {
         }
     }
 
-    public void UpdateInventory(CardInventory cardInventory) {
+    public void UpdateInventory(IEnumerable<AbilityCardType> cards) {
         cardColors.Clear();
 
-        foreach (var cardType in cardInventory.Cards) {
+        foreach (var cardType in cards) {
             cardColors.Add(cardType switch {
                 AbilityCardType.Yellow => Color.Yellow,
                 AbilityCardType.Blue => Color.Blue,

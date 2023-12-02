@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Mono.Cecil.Cil;
 using Monocle;
@@ -9,6 +10,7 @@ using MonoMod.Utils;
 namespace Celeste.Mod.RushHelper;
 
 public static class PlayerExtensions {
+    private const int MAX_CARD_COUNT = 3;
     private const float YELLOW_MIN_X = 90f;
     private const float YELLOW_ADD_X = 40f;
     private const float YELLOW_MIN_Y = -220f;
@@ -22,7 +24,6 @@ public static class PlayerExtensions {
     private const float GREEN_FALL_SPEED = 360f;
     private const float GREEN_LAND_SPEED = 90f;
     private const float GREEN_LAND_KILL_RADIUS = 48f;
-    private const float GREEN_ALLOW_CANCEL_AT = 0.1f;
     private static readonly Vector2 RED_DASH_SPEED = new(280f, 240f);
     private const float RED_DASH_DURATION = 0.15f;
     private const float RED_BOOST_DURATION = 1f;
@@ -33,6 +34,7 @@ public static class PlayerExtensions {
     private const float WHITE_JUMP_GRACE_TIME = 0.05f;
     private const float SURF_SPEED = 280f;
     private const float SURF_ACCELERATION = 650f;
+    private const float SURF_CROUCH_FRICTION_MULTIPLIER = 0.5f;
 
     private static readonly ParticleType RED_PARTICLE = new() {
         Color = Color.Red,
@@ -101,12 +103,11 @@ public static class PlayerExtensions {
         if (!player.TryGetData(out _, out var extData))
             return;
         
-        var cardInventory = extData.CardInventory;
+        var cards = extData.Cards;
 
-        cardInventory.Reset();
-        extData.CardInventoryIndicator.UpdateInventory(cardInventory);
+        cards.Clear();
+        extData.CardInventoryIndicator.UpdateInventory(cards);
         extData.BlueHyperTimePassed = false;
-        extData.GreenCancelTimePassed = false;
         extData.RedBoostTimer = 0f;
         extData.RedParticleEmitter.Active = false;
         extData.RedSoundSource.Stop();
@@ -121,12 +122,13 @@ public static class PlayerExtensions {
     public static bool TryGiveCard(this Player player, AbilityCardType cardType) {
         player.GetOrCreateData(out _, out var extData);
 
-        var cardInventory = extData.CardInventory;
+        var cards = extData.Cards;
 
-        if (!cardInventory.TryAddCard(cardType))
+        if (cards.Count == MAX_CARD_COUNT)
             return false;
         
-        extData.CardInventoryIndicator.UpdateInventory(cardInventory);
+        cards.Enqueue(cardType);
+        extData.CardInventoryIndicator.UpdateInventory(cards);
         extData.CardInventoryIndicator.PlayAnimation();
 
         return true;
@@ -199,10 +201,10 @@ public static class PlayerExtensions {
         return dynamicData.TryGet("rushHelperData", out extData);
     }
 
-    private static bool ShouldUseCard(this Player player) {
+    private static bool CheckUseCard(this Player player) {
         if (!Input.Grab.Pressed
             || !player.TryGetData(out _, out var extData)
-            || extData.CardInventory.CardCount == 0)
+            || extData.Cards.Count == 0)
             return false;
         
         Input.Grab.ConsumeBuffer();
@@ -210,18 +212,36 @@ public static class PlayerExtensions {
         return true;
     }
 
-    private static AbilityCardType? PopCard(this Player player) {
+    private static bool NextCardIs(this Player player, AbilityCardType cardType) {
+        if (!player.TryGetData(out _, out var extData))
+            return false;
+
+        var cards = extData.Cards;
+
+        return cards.Count > 0 && cards.Peek() == cardType;
+    }
+
+    private static AbilityCardType PopCard(this Player player) {
         player.GetData(out _, out var extData);
 
-        var cardInventory = extData.CardInventory;
+        var cards = extData.Cards;
         var cardInventoryIndicator = extData.CardInventoryIndicator;
-        var cardType = cardInventory.PopCard();
+        var cardType = cards.Dequeue();
         
-        cardInventoryIndicator.UpdateInventory(cardInventory);
+        cardInventoryIndicator.UpdateInventory(cards);
         cardInventoryIndicator.StopAnimation();
 
         return cardType;
     }
+    
+    private static int UseCard(this Player player) => player.PopCard() switch {
+        AbilityCardType.Yellow => player.UseYellowCard(),
+        AbilityCardType.Blue => player.UseBlueCard(),
+        AbilityCardType.Green => player.UseGreenCard(),
+        AbilityCardType.Red => player.UseRedCard(),
+        AbilityCardType.White => player.UseWhiteCard(),
+        _ => throw new ArgumentOutOfRangeException()
+    };
 
     private static int UseYellowCard(this Player player) {
         Audio.Play(SFX.game_gen_thing_booped, player.Position);
@@ -272,7 +292,6 @@ public static class PlayerExtensions {
     private static int UseGreenCard(this Player player) {
         player.GetData(out _, out var extData);
         player.PrepareForCustomDash();
-        extData.GreenCancelTimePassed = false;
         extData.CustomTrailTimer = 0.016f;
         player.Sprite.Play("fallFast");
         Audio.Play(SFX.game_05_crackedwall_vanish, player.Position);
@@ -388,7 +407,7 @@ public static class PlayerExtensions {
         player.GetData(out var dynamicData, out var extData);
         player.UpdateTrail(Color.Blue, 0.016f, 0.66f);
 
-        if (dynamicData.Get<float>("jumpGraceTimer") > BLUE_HYPER_GRACE_TIME || player.OnGround(3))
+        if (dynamicData.Get<float>("jumpGraceTimer") > BLUE_HYPER_GRACE_TIME || dynamicData.Get<bool>("onGround"))
             dynamicData.Set("jumpGraceTimer", BLUE_HYPER_GRACE_TIME);
 
         if (Input.Jump.Pressed
@@ -475,10 +494,16 @@ public static class PlayerExtensions {
             }
         }
         
-        if (extData.GreenCancelTimePassed && player.CanDash) {
+        if (player.CanDash) {
             player.Sprite.Scale = Vector2.One;
             
             return player.StartDash();
+        }
+
+        if (!player.NextCardIs(AbilityCardType.Green) && player.CheckUseCard()) {
+            player.Sprite.Scale = Vector2.One;
+
+            return player.UseCard();
         }
         
         player.UpdateTrail(Color.Green, 0.016f, 0.33f);
@@ -491,11 +516,6 @@ public static class PlayerExtensions {
         yield return null;
         
         player.Speed = new Vector2(0f, GREEN_FALL_SPEED);
-
-        yield return GREEN_ALLOW_CANCEL_AT;
-        
-        player.GetData(out _, out var extData);
-        extData.GreenCancelTimePassed = true;
     }
 
     private static int RedUpdate(this Player player) {
@@ -569,9 +589,6 @@ public static class PlayerExtensions {
     }
 
     private static int WhiteUpdate(this Player player) {
-        if (player.CanDash)
-            return player.StartDash();
-
         player.GetData(out var dynamicData, out var extData);
         player.UpdateTrail(Color.White, 0.016f, 0.33f);
 
@@ -587,11 +604,15 @@ public static class PlayerExtensions {
 
             return extData.WhiteIndex;
         }
+        
+        if (player.CanDash)
+            return player.StartDash();
 
-        var cardInventory = extData.CardInventory;
-            
-        if (cardInventory.PeekCard() != AbilityCardType.White || !player.ShouldUseCard())
+        if (!player.CheckUseCard())
             return extData.WhiteIndex;
+
+        if (!player.NextCardIs(AbilityCardType.White))
+            return player.UseCard();
 
         player.PopCard();
         dynamicData.Set("beforeDashSpeed", player.Speed);
@@ -680,29 +701,25 @@ public static class PlayerExtensions {
         return state == extData.GreenIndex || state == extData.WhiteIndex;
     }
 
-    private static int UseCard(Player player) => player.PopCard() switch {
-        AbilityCardType.Yellow => player.UseYellowCard(),
-        AbilityCardType.Blue => player.UseBlueCard(),
-        AbilityCardType.Green => player.UseGreenCard(),
-        AbilityCardType.Red => player.UseRedCard(),
-        AbilityCardType.White => player.UseWhiteCard(),
-        _ => throw new ArgumentOutOfRangeException()
-    };
-
     private static float MultiplyAirFriction(float value, Player player)
         => player.TryGetData(out _, out var extData) && extData.RedBoostTimer > 0f ? value * RED_FRICTION_MULTIPLIER : value;
 
     private static float MultiplyGroundFriction(float value, Player player) {
         if (!player.TryGetData(out var dynamicData, out var extData))
             return value;
-
+        
         int moveX = dynamicData.Get<int>("moveX");
+        bool movingWithDirection = moveX != 0 && moveX == Math.Sign(player.Speed.X);
 
-        if (moveX != 0 && extData.Surfing && !player.Ducking && moveX == Math.Sign(player.Speed.X))
-            return 0f;
+        if (extData.Surfing) {
+            if (player.Ducking)
+                value *= SURF_CROUCH_FRICTION_MULTIPLIER;
+            else if (movingWithDirection)
+                return 0f;
+        }
 
-        if (extData.RedBoostTimer > 0f)
-            return value * RED_FRICTION_MULTIPLIER;
+        if (extData.RedBoostTimer > 0f && (movingWithDirection || player.Ducking))
+            value *= RED_FRICTION_MULTIPLIER;
 
         return value;
     }
@@ -910,7 +927,7 @@ public static class PlayerExtensions {
             instr => instr.MatchCallvirt<Player>("get_CanDash"));
 
         cursor.Emit(OpCodes.Ldarg_0);
-        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(ShouldUseCard)));
+        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(CheckUseCard)));
         
         var label = cursor.DefineLabel();
         
@@ -972,10 +989,9 @@ public static class PlayerExtensions {
         public int GreenIndex;
         public int RedIndex;
         public int WhiteIndex;
-        public CardInventory CardInventory = new();
+        public Queue<AbilityCardType> Cards = new();
         public CardInventoryIndicator CardInventoryIndicator;
         public bool BlueHyperTimePassed;
-        public bool GreenCancelTimePassed;
         public float RedBoostTimer;
         public SmoothParticleEmitter RedParticleEmitter;
         public SoundSource RedSoundSource;
