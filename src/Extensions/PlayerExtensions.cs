@@ -28,7 +28,7 @@ public static class PlayerExtensions {
     private const float RED_BOOST_DURATION = 0.66f;
     private const float RED_FRICTION_MULTIPLIER = 0.5f;
     private const float RED_WALL_JUMP_ADD_SPEED = 40f;
-    private const float WHITE_SPEED = 325f;
+    private const float WHITE_SPEED = 280f;
     private const float WHITE_REDIRECT_ADD_SPEED = 40f;
     private const float WHITE_JUMP_GRACE_TIME = 0.05f;
     private const float SURF_SPEED = 280f;
@@ -413,6 +413,11 @@ public static class PlayerExtensions {
         if (dynamicData.Get<float>("jumpGraceTimer") > BLUE_HYPER_GRACE_TIME || dynamicData.Get<bool>("onGround"))
             dynamicData.Set("jumpGraceTimer", BLUE_HYPER_GRACE_TIME);
 
+        foreach (var jumpThru in player.Scene.Tracker.GetEntities<JumpThru>()) {
+            if (player.CollideCheck(jumpThru) && player.Bottom - jumpThru.Top <= 6f && !dynamicData.Invoke<bool>("DashCorrectCheck", Vector2.UnitY * (jumpThru.Top - player.Bottom)))
+                player.MoveVExact((int) (jumpThru.Top - player.Bottom));
+        }
+
         if (Input.Jump.Pressed
             && extData.BlueHyperTimePassed
             && dynamicData.Get<float>("jumpGraceTimer") > 0f) {
@@ -421,11 +426,6 @@ public static class PlayerExtensions {
             dynamicData.Invoke("SuperJump");
             
             return 0;
-        }
-
-        foreach (var jumpThru in player.Scene.Tracker.GetEntities<JumpThru>()) {
-            if (player.CollideCheck(jumpThru) && player.Bottom - jumpThru.Top <= 6f && !dynamicData.Invoke<bool>("DashCorrectCheck", Vector2.UnitY * (jumpThru.Top - player.Bottom)))
-                player.MoveVExact((int) (jumpThru.Top - player.Bottom));
         }
 
         return extData.BlueIndex;
