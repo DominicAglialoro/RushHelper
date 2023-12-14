@@ -10,7 +10,7 @@ public class SurfPlatform : Solid {
     private DynamicWaterSurface waterSurface;
 
     public SurfPlatform(EntityData data, Vector2 offset) : base(data.Position + offset, data.Width, data.Height, true) {
-        waterSurface = new DynamicWaterSurface(Position - Vector2.UnitY, (int) Width, 5, 360f, 1300f, 1.25f);
+        waterSurface = new DynamicWaterSurface(Position, (int) Width, 4, 360f, 1300f, 1.25f);
         SurfaceSoundIndex = 0;
         Depth = -9999;
     }

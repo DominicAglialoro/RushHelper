@@ -28,6 +28,7 @@ public static class PlayerExtensions {
     private const float RED_BOOST_DURATION = 1f;
     private const float RED_FRICTION_MULTIPLIER = 0.5f;
     private const float RED_WALL_JUMP_ADD_SPEED = 40f;
+    private const float RED_WALL_SPEED_RETENTION_TIME = 0.16f;
     private const float WHITE_SPEED = 280f;
     private const float WHITE_REDIRECT_ADD_SPEED = 40f;
     private const float WHITE_JUMP_GRACE_TIME = 0.05f;
@@ -755,6 +756,9 @@ public static class PlayerExtensions {
         return value;
     }
 
+    private static float GetWallSpeedRetentionTime(float value, Player player)
+        => player.TryGetData(out _, out var rushData) && rushData.RedBoostTimer > 0f ? RED_WALL_SPEED_RETENTION_TIME : value;
+
     private static void Player_Update(On.Celeste.Player.orig_Update update, Player player) {
         player.GetData(out var dynamicData, out var rushData);
         
@@ -835,6 +839,12 @@ public static class PlayerExtensions {
         cursor.Emit(OpCodes.Ldarg_0);
         cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(IsInCustomDash)));
         cursor.Emit(OpCodes.Brtrue_S, label);
+
+        cursor.GotoNext(MoveType.Before,
+            instr => instr.MatchStfld<Player>("wallSpeedRetentionTimer"));
+
+        cursor.Emit(OpCodes.Ldarg_0);
+        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(GetWallSpeedRetentionTime)));
         
         cursor.Index = -1;
         cursor.MoveAfterLabels();
