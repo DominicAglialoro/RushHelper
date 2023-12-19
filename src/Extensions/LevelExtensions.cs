@@ -29,11 +29,12 @@ public static class LevelExtensions {
     private static string GetNextLevel(this Level level) {
         var session = level.Session;
         var levels = session.MapData.Levels;
-        int index = levels.IndexOf(session.LevelData);
 
-        if (index < levels.Count - 1)
-            index++;
+        for (int i = levels.IndexOf(session.LevelData) + 1; i < levels.Count; i++) {
+            if (levels[i].Spawns.Count > 0)
+                return levels[i].Name;
+        }
 
-        return levels[index].Name;
+        return session.Level;
     }
 }

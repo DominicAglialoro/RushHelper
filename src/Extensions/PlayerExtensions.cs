@@ -429,14 +429,6 @@ public static class PlayerExtensions {
             && dynamicData.Get<float>("jumpGraceTimer") > 0f) {
             player.Ducking = true;
             player.StateMachine.State = 0;
-
-            if (player.LiftSpeed == Vector2.Zero) {
-                var solid = player.CollideFirst<Solid>(player.Position + Vector2.UnitY);
-
-                if (solid != null)
-                    player.LiftSpeed = solid.LiftSpeed;
-            }
-            
             dynamicData.Invoke("SuperJump");
             
             return 0;
