@@ -28,7 +28,7 @@ public static class PlayerExtensions {
     private const float RED_BOOST_DURATION = 1f;
     private const float RED_FRICTION_MULTIPLIER = 0.5f;
     private const float RED_WALL_JUMP_ADD_SPEED = 40f;
-    private const float RED_WALL_SPEED_RETENTION_TIME = 0.16f;
+    private const float RED_WALL_SPEED_RETENTION_TIME = 0.13f;
     private const float WHITE_SPEED = 280f;
     private const float WHITE_REDIRECT_ADD_SPEED = 40f;
     private const float WHITE_JUMP_GRACE_TIME = 0.05f;
@@ -931,7 +931,7 @@ public static class PlayerExtensions {
 
         var liftBoost = dynamicData.Get<Vector2>("LiftBoost");
 
-        if (Math.Sign(Input.MoveX.Value) == dir)
+        if (Math.Sign(Input.MoveX.Value) != 0f)
             player.Speed.X = dir * Math.Max(130f, beforeSpeedX + RED_WALL_JUMP_ADD_SPEED) + liftBoost.X;
 
         player.Speed.Y = Math.Min(-105f, beforeSpeedY) + liftBoost.Y;
