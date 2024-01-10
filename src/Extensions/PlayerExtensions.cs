@@ -34,7 +34,6 @@ public static class PlayerExtensions {
     private const float WHITE_JUMP_GRACE_TIME = 0.05f;
     private const float SURF_SPEED = 280f;
     private const float SURF_ACCELERATION = 650f;
-    private const float SURF_CROUCH_FRICTION_MULTIPLIER = 0.5f;
 
     private static readonly ParticleType RED_PARTICLE = new() {
         Color = Color.Red,
@@ -735,15 +734,11 @@ public static class PlayerExtensions {
         int moveX = dynamicData.Get<int>("moveX");
         bool movingWithDirection = moveX != 0 && moveX == Math.Sign(player.Speed.X);
 
-        if (rushData.Surfing) {
-            if (player.Ducking)
-                value *= SURF_CROUCH_FRICTION_MULTIPLIER;
-            else if (movingWithDirection)
-                return 0f;
-        }
+        if (rushData.Surfing && (movingWithDirection || player.Ducking))
+            return 0f;
 
         if (rushData.RedBoostTimer > 0f && (movingWithDirection || player.Ducking))
-            value *= RED_FRICTION_MULTIPLIER;
+            return value * RED_FRICTION_MULTIPLIER;
 
         return value;
     }
