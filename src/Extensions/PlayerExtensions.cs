@@ -415,13 +415,19 @@ public static class PlayerExtensions {
         
         player.UpdateTrail(Color.Blue, 0.016f, 0.66f);
 
-        if (dynamicData.Get<float>("jumpGraceTimer") > BLUE_HYPER_GRACE_TIME || dynamicData.Get<bool>("onGround"))
+        bool onGround = dynamicData.Get<bool>("onGround");
+
+        if (onGround || dynamicData.Get<float>("jumpGraceTimer") > BLUE_HYPER_GRACE_TIME)
             dynamicData.Set("jumpGraceTimer", BLUE_HYPER_GRACE_TIME);
 
         foreach (var jumpThru in player.Scene.Tracker.GetEntities<JumpThru>()) {
             if (player.CollideCheck(jumpThru) && player.Bottom - jumpThru.Top <= 6f && !dynamicData.Invoke<bool>("DashCorrectCheck", Vector2.UnitY * (jumpThru.Top - player.Bottom)))
                 player.MoveVExact((int) (jumpThru.Top - player.Bottom));
         }
+
+        if (!onGround && (player.CollideCheck<Solid>(player.Position + 3f * Vector2.UnitY)
+                          || player.CollideCheckOutside<JumpThru>(player.Position + 3f * Vector2.UnitY)) && !dynamicData.Invoke<bool>("DashCorrectCheck", 3f * Vector2.UnitY))
+            player.MoveVExact(3);
 
         if (Input.Jump.Pressed
             && rushData.BlueHyperTimePassed
