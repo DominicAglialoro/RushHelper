@@ -569,8 +569,10 @@ public static class PlayerExtensions {
                 if (player.CollideCheck(jumpThru) && player.Bottom - jumpThru.Top <= 6f && !dynamicData.Invoke<bool>("DashCorrectCheck", Vector2.UnitY * (jumpThru.Top - player.Bottom)))
                     player.MoveVExact((int) (jumpThru.Top - player.Bottom));
             }
-
-            return rushData.RedIndex;
+            
+            if (!dynamicData.Get<bool>("onGround") && (player.CollideCheck<Solid>(player.Position + 3f * Vector2.UnitY) 
+                                                       || player.CollideCheckOutside<JumpThru>(player.Position + 3f * Vector2.UnitY)) && !dynamicData.Invoke<bool>("DashCorrectCheck", 3f * Vector2.UnitY))
+                player.MoveVExact(3);
         }
 
         return rushData.RedIndex;
