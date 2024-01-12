@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework;
 using Mono.Cecil.Cil;
 using Monocle;
 using MonoMod.Cil;
+using MonoMod.RuntimeDetour;
 using MonoMod.Utils;
 
 namespace Celeste.Mod.RushHelper;
@@ -59,8 +60,11 @@ public static class PlayerExtensions {
         SpeedMax = 250f,
         DirectionRange = 0.7f
     };
+
+    private static ILHook il_Celeste_Player_orig_Update;
     
     public static void Load() {
+        il_Celeste_Player_orig_Update = new ILHook(typeof(Player).GetMethodUnconstrained(nameof(Player.orig_Update)), Player_orig_Update_il);
         On.Celeste.Player.Update += Player_Update;
         On.Celeste.Player.OnCollideH += Player_OnCollideH;
         IL.Celeste.Player.OnCollideH += Player_OnCollideH_il;
@@ -77,6 +81,7 @@ public static class PlayerExtensions {
     }
 
     public static void Unload() {
+        il_Celeste_Player_orig_Update.Dispose();
         On.Celeste.Player.Update -= Player_Update;
         IL.Celeste.Player.OnCollideH -= Player_OnCollideH_il;
         IL.Celeste.Player.OnCollideV -= Player_OnCollideV_il;
@@ -425,10 +430,6 @@ public static class PlayerExtensions {
                 player.MoveVExact((int) (jumpThru.Top - player.Bottom));
         }
 
-        if (!onGround && (player.CollideCheck<Solid>(player.Position + 3f * Vector2.UnitY)
-                          || player.CollideCheckOutside<JumpThru>(player.Position + 3f * Vector2.UnitY)) && !dynamicData.Invoke<bool>("DashCorrectCheck", 3f * Vector2.UnitY))
-            player.MoveVExact(3);
-
         if (Input.Jump.Pressed
             && rushData.BlueHyperTimePassed
             && dynamicData.Get<float>("jumpGraceTimer") > 0f) {
@@ -569,10 +570,6 @@ public static class PlayerExtensions {
                 if (player.CollideCheck(jumpThru) && player.Bottom - jumpThru.Top <= 6f && !dynamicData.Invoke<bool>("DashCorrectCheck", Vector2.UnitY * (jumpThru.Top - player.Bottom)))
                     player.MoveVExact((int) (jumpThru.Top - player.Bottom));
             }
-            
-            if (!dynamicData.Get<bool>("onGround") && (player.CollideCheck<Solid>(player.Position + 3f * Vector2.UnitY) 
-                                                       || player.CollideCheckOutside<JumpThru>(player.Position + 3f * Vector2.UnitY)) && !dynamicData.Invoke<bool>("DashCorrectCheck", 3f * Vector2.UnitY))
-                player.MoveVExact(3);
         }
 
         return rushData.RedIndex;
@@ -813,6 +810,22 @@ public static class PlayerExtensions {
 
         if (rushData.SurfSoundSource.Playing)
             rushData.SurfSoundSource.Param("fade", MathHelper.Min(Math.Abs(player.Speed.X) / SURF_SPEED, 1f));
+    }
+    
+    private static void Player_orig_Update_il(ILContext il) {
+        var cursor = new ILCursor(il);
+
+        cursor.GotoNext(MoveType.After, instr => instr.MatchCallvirt<Player>("get_DashAttacking"));
+
+        var label = cursor.DefineLabel();
+
+        cursor.Emit(OpCodes.Brtrue, label);
+        cursor.Emit(OpCodes.Ldarg_0);
+        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(IsInCustomDash)));
+
+        cursor.GotoNext(MoveType.After, instr => instr.OpCode == OpCodes.Brfalse);
+
+        cursor.MarkLabel(label);
     }
 
     private static void Player_OnCollideH(On.Celeste.Player.orig_OnCollideH onCollideH, Player player, CollisionData data) {
