@@ -14,7 +14,7 @@ public static class PlayerExtensions {
     private const int MAX_CARD_COUNT = 3;
     private const float YELLOW_MIN_X = 90f;
     private const float YELLOW_ADD_X = 40f;
-    private const float YELLOW_MIN_Y = -220f;
+    private const float YELLOW_Y = -220f;
     private const float YELLOW_VAR_JUMP_TIME = 0.15f;
     private const float BLUE_SPEED = 720f;
     private const float BLUE_END_SPEED = 240f;
@@ -237,7 +237,7 @@ public static class PlayerExtensions {
     }
     
     private static int UseCard(this Player player) {
-        player.GetData(out var dynamicData, out var rushData);
+        player.GetData(out _, out var rushData);
         rushData.JustUsedCard = true;
         
         return player.PopCard() switch {
@@ -361,14 +361,14 @@ public static class PlayerExtensions {
         player.Sprite.Position.Y = -6f;
     }
 
-    private static void UpdateTrail(this Player player, Color color, float interval, float duration) {
+    private static void UpdateTrail(this Player player, Color color, float duration) {
         player.GetData(out _, out var rushData);
         rushData.CustomTrailTimer -= Engine.DeltaTime;
 
         if (rushData.CustomTrailTimer > 0f)
             return;
         
-        rushData.CustomTrailTimer = interval;
+        rushData.CustomTrailTimer = 0.016f;
         TrailManager.Add(player.Position, player.Sprite, player.Hair.Visible ? player.Hair : null,
             new Vector2((float) player.Facing * Math.Abs(player.Sprite.Scale.X), player.Sprite.Scale.Y),
             color, player.Depth + 1, duration);
@@ -401,10 +401,7 @@ public static class PlayerExtensions {
         if (moveX != 0 && moveX * player.Speed.X < YELLOW_MIN_X)
             player.Speed.X = moveX * YELLOW_MIN_X;
 
-        if (player.Speed.Y > YELLOW_MIN_Y)
-            player.Speed.Y = YELLOW_MIN_Y;
-
-        player.Speed.Y += liftBoost.Y;
+        player.Speed.Y = YELLOW_Y + liftBoost.Y;
         player.AutoJump = true;
         player.AutoJumpTimer = 0f;
         dynamicData.Set("varJumpSpeed", player.Speed.Y);
@@ -417,8 +414,6 @@ public static class PlayerExtensions {
 
         if (rushData.JustUsedCard)
             return rushData.BlueIndex;
-        
-        player.UpdateTrail(Color.Blue, 0.016f, 0.66f);
 
         bool onGround = dynamicData.Get<bool>("onGround");
 
@@ -439,6 +434,8 @@ public static class PlayerExtensions {
             
             return 0;
         }
+        
+        player.UpdateTrail(Color.Blue, 0.66f);
 
         return rushData.BlueIndex;
     }
@@ -525,7 +522,7 @@ public static class PlayerExtensions {
             return player.UseCard();
         }
         
-        player.UpdateTrail(Color.Green, 0.016f, 0.33f);
+        player.UpdateTrail(Color.Green, 0.33f);
         player.Sprite.Scale = new Vector2(0.5f, 2f);
         
         return rushData.GreenIndex;
@@ -617,7 +614,6 @@ public static class PlayerExtensions {
         if (rushData.JustUsedCard)
             return rushData.WhiteIndex;
         
-        player.UpdateTrail(Color.White, 0.016f, 0.33f);
 
         if (rushData.WhiteRedirect) {
             var direction = dynamicData.Invoke<Vector2>("CorrectDashPrecision", dynamicData.Get<Vector2>("lastAim"));
@@ -635,8 +631,11 @@ public static class PlayerExtensions {
         if (player.CanDash)
             return player.StartDash();
 
-        if (!player.CheckUseCard())
+        if (!player.CheckUseCard()) {
+            player.UpdateTrail(Color.White, 0.33f);
+            
             return rushData.WhiteIndex;
+        }
 
         if (!player.NextCardIs(AbilityCardType.White))
             return player.UseCard();
@@ -682,10 +681,7 @@ public static class PlayerExtensions {
     }
 
     private static void OnTrueCollideH(Player player) {
-        if (!player.TryGetData(out _, out var rushData))
-            return;
-        
-        if (player.StateMachine.State == rushData.WhiteIndex)
+        if (player.TryGetData(out _, out var rushData) && player.StateMachine.State == rushData.WhiteIndex)
             player.StateMachine.State = 0;
     }
 
@@ -804,7 +800,7 @@ public static class PlayerExtensions {
             surfParticleEmitter.Stop();
 
         if (rushData.RedBoostTimer > 0f)
-            player.UpdateTrail(Color.Red * Math.Min(4f * rushData.RedBoostTimer, 1f), 0.016f, 0.16f);
+            player.UpdateTrail(Color.Red * Math.Min(4f * rushData.RedBoostTimer, 1f), 0.16f);
         else if (rushData.RedSoundSource.Playing)
             rushData.RedSoundSource.Stop();
 
