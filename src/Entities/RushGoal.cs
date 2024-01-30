@@ -11,7 +11,6 @@ public class RushGoal : Entity {
     private Sprite crystal;
     private Sprite effect;
     private SineWave sine;
-    private VertexLight light;
     private BloomPoint bloom;
     
     public RushGoal(EntityData data, Vector2 offset) : base(data.Position + offset) {
@@ -41,7 +40,7 @@ public class RushGoal : Entity {
         Add(sine = new SineWave(0.3f));
         sine.Randomize();
         
-        Add(light = new VertexLight(-12f * Vector2.UnitY, Color.Cyan, 0.5f, 16, 48));
+        Add(new VertexLight(-12f * Vector2.UnitY, Color.Cyan, 0.5f, 16, 48));
         Add(bloom = new BloomPoint(0.5f, 16f));
         Add(new PlayerCollider(OnPlayer));
 
@@ -81,7 +80,7 @@ public class RushGoal : Entity {
         tween.UseRawDeltaTime = true;
         tween.OnUpdate = tween => {
             Glitch.Value = 0.5f * tween.Percent;
-            Engine.TimeRate = 1f - Ease.ExpoOut(tween.Percent);
+            Engine.TimeRate = 1f - Ease.ExpoOut(Math.Min(4f * tween.Percent, 1f));
         };
         tween.OnComplete = _ => {
             Glitch.Value = 0.5f;
