@@ -267,9 +267,6 @@ public static class PlayerExtensions {
         player.GetData(out _, out var rushData);
         player.PrepareForCustomDash();
         rushData.BlueHyperTimePassed = false;
-
-        if (player.Ducking && player.CanUnDuck)
-            player.Ducking = false;
         
         player.Sprite.Play("dash");
         Audio.Play("event:/rushHelper/game/blue_dash", player.Position);
@@ -280,9 +277,6 @@ public static class PlayerExtensions {
     private static int UseGreenCard(this Player player) {
         player.GetData(out _, out var rushData);
         player.PrepareForCustomDash();
-        
-        if (player.Ducking && player.CanUnDuck)
-            player.Ducking = false;
         
         player.Sprite.Play("fallFast");
         Audio.Play(SFX.game_05_crackedwall_vanish, player.Position);
@@ -304,9 +298,6 @@ public static class PlayerExtensions {
         player.GetData(out var dynamicData, out var rushData);
         player.Speed += dynamicData.Get<Vector2>("LiftBoost");
         player.PrepareForCustomDash();
-        
-        if (player.Ducking && player.CanUnDuck)
-            player.Ducking = false;
         
         player.Sprite.Scale = Vector2.One;
         player.Sprite.Play("dreamDashLoop");
@@ -346,10 +337,10 @@ public static class PlayerExtensions {
         dynamicData.Set("dashStartedOnGround", onGround);
         player.Speed = Vector2.Zero;
         player.DashDir = Vector2.Zero;
-
-        if (!onGround && player.Ducking && player.CanUnDuck)
-            player.Ducking = false;
         
+        if (player.Ducking && player.CanUnDuck)
+            player.Ducking = false;
+
         rushData.RedBoostTimer = 0f;
         rushData.CustomTrailTimer = 0.016f;
         Celeste.Freeze(0.05f);
