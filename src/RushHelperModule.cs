@@ -10,7 +10,7 @@ public class RushHelperModule : EverestModule {
         Logger.SetLogLevel(nameof(RushHelperModule), LogLevel.Verbose);
 #else
         // release builds use info logging to reduce spam in log files
-        Logger.SetLogLevel(nameof(HeavenRushModule), LogLevel.Info);
+        Logger.SetLogLevel(nameof(RushHelperModule), LogLevel.Info);
 #endif
     }
 
