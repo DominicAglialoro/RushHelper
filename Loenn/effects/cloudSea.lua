@@ -24,7 +24,8 @@ cloudSea.fieldOrder = {
 	"waveMinFrequency",
 	"waveMaxFrequency",
 	"waveMinSpeed",
-	"waveMaxSpeed"
+	"waveMaxSpeed",
+	"flip"
 }
 
 cloudSea.fieldInformation = {
@@ -58,7 +59,8 @@ cloudSea.defaultData = {
 	waveMinFrequency = 0,
 	waveMaxFrequency = 0,
 	waveMinSpeed = 0,
-	waveMaxSpeed = 0
+	waveMaxSpeed = 0,
+	flip = false
 }
 
 return cloudSea

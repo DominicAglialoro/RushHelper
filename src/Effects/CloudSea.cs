@@ -16,6 +16,7 @@ public class CloudSea : Backdrop {
     private float nearScrollY;
     private float farScrollY;
     private float layerHeight;
+    private bool flip;
     private float time;
     private float[] buffer;
     
@@ -43,7 +44,8 @@ public class CloudSea : Backdrop {
         float waveMinSpeed = data.AttrFloat("waveMinSpeed");
         float waveMaxSpeed = data.AttrFloat("waveMaxSpeed");
         int waveCount = data.AttrInt("waveCount");
-
+        
+        flip = data.AttrBool("flip");
         layers = new Layer[layerCount];
 
         for (int i = 0; i < layerCount; i++) {
@@ -118,17 +120,33 @@ public class CloudSea : Backdrop {
             var outlineMesh = layer.OutlineMesh;
             float y = MathHelper.Lerp(endY, startY, layer.Depth);
 
-            for (int quad = 0, x = 0, k = 0; quad < fillMesh.Length; quad += 6, x += 4, k++) {
-                fillMesh.SetQuad(quad,
-                    new Vector3(x, y + buffer[k], 0f),
-                    new Vector3(x, y + layerHeight, 0f),
-                    new Vector3(x + 4f, y + buffer[k + 1], 0f),
-                    new Vector3(x + 4f, y + layerHeight, 0f));
-                outlineMesh.SetQuad(quad,
-                    new Vector3(x, y + buffer[k] - 1f, 0f),
-                    new Vector3(x, y + buffer[k], 0f),
-                    new Vector3(x + 4f, y + buffer[k + 1] - 1f, 0f),
-                    new Vector3(x + 4f, y + buffer[k + 1], 0f));
+            if (flip) {
+                for (int quad = 0, x = 0, k = 0; quad < fillMesh.Length; quad += 6, x += 4, k++) {
+                    fillMesh.SetQuad(quad,
+                        new Vector3(x, y, 0f),
+                        new Vector3(x, y + layerHeight + buffer[k], 0f),
+                        new Vector3(x + 4f, y, 0f),
+                        new Vector3(x + 4f, y + layerHeight + buffer[k + 1], 0f));
+                    outlineMesh.SetQuad(quad,
+                        new Vector3(x, y + layerHeight + buffer[k] + 1f, 0f),
+                        new Vector3(x, y + layerHeight + buffer[k], 0f),
+                        new Vector3(x + 4f, y + layerHeight + buffer[k + 1] + 1f, 0f),
+                        new Vector3(x + 4f, y + layerHeight + buffer[k + 1], 0f));
+                }
+            }
+            else {
+                for (int quad = 0, x = 0, k = 0; quad < fillMesh.Length; quad += 6, x += 4, k++) {
+                    fillMesh.SetQuad(quad,
+                        new Vector3(x, y + buffer[k], 0f),
+                        new Vector3(x, y + layerHeight, 0f),
+                        new Vector3(x + 4f, y + buffer[k + 1], 0f),
+                        new Vector3(x + 4f, y + layerHeight, 0f));
+                    outlineMesh.SetQuad(quad,
+                        new Vector3(x, y + buffer[k] - 1f, 0f),
+                        new Vector3(x, y + buffer[k], 0f),
+                        new Vector3(x + 4f, y + buffer[k + 1] - 1f, 0f),
+                        new Vector3(x + 4f, y + buffer[k + 1], 0f));
+                }
             }
 
             GFX.DrawVertices(Matrix.Identity, fillMesh, fillMesh.Length);
