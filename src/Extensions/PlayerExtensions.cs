@@ -87,7 +87,9 @@ public static class PlayerExtensions {
     public static void Unload() {
         il_Celeste_Player_orig_Update.Dispose();
         On.Celeste.Player.Update -= Player_Update;
+        On.Celeste.Player.OnCollideH -= Player_OnCollideH;
         IL.Celeste.Player.OnCollideH -= Player_OnCollideH_il;
+        On.Celeste.Player.OnCollideV -= Player_OnCollideV;
         IL.Celeste.Player.OnCollideV -= Player_OnCollideV_il;
         On.Celeste.Player.OnBoundsH -= Player_OnBoundsH;
         On.Celeste.Player.OnBoundsV -= Player_OnBoundsV;
@@ -96,6 +98,7 @@ public static class PlayerExtensions {
         On.Celeste.Player.Jump -= Player_Jump;
         On.Celeste.Player.WallJump -= Player_WallJump;
         IL.Celeste.Player.WallJumpCheck -= Player_WallJumpCheck_il;
+        On.Celeste.Player.NormalUpdate -= Player_NormalUpdate;
         IL.Celeste.Player.NormalUpdate -= Player_NormalUpdate_il;
         On.Celeste.Player.DashBegin -= Player_DashBegin;
         On.Celeste.Player.UpdateSprite -= Player_UpdateSprite;
