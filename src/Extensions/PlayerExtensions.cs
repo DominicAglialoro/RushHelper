@@ -20,7 +20,8 @@ public static class PlayerExtensions {
     private const float BLUE_END_SPEED = 240f;
     private const float BLUE_DURATION = 0.15f;
     private const float BLUE_ALLOW_JUMP_AT = 0.05f;
-    private const float BLUE_HYPER_GRACE_TIME = 0.05f;
+    private const float BLUE_HYPER_GRACE_TIME_GROUND = 0.05f;
+    private const float BLUE_HYPER_GRACE_TIME_DEMON = 0.1f;
     private const float GREEN_FALL_SPEED = 360f;
     private const float GREEN_LAND_SPEED = 90f;
     private const float GREEN_LAND_KILL_RADIUS = 48f;
@@ -157,7 +158,7 @@ public static class PlayerExtensions {
             return false;
 
         if (state == rushData.BlueIndex)
-            dynamicData.Set("jumpGraceTimer", BLUE_HYPER_GRACE_TIME);
+            dynamicData.Set("jumpGraceTimer", BLUE_HYPER_GRACE_TIME_DEMON);
         else if (state == rushData.WhiteIndex ) {
             if (rushData.JustUsedCard)
                 return false;
@@ -366,15 +367,15 @@ public static class PlayerExtensions {
         ((Level) player.Scene).Displacement.AddBurst(player.Center, 0.4f, 8f, 64f, 0.5f, Ease.QuadOut, Ease.QuadOut);
 
         if (direction.X == 0f) {
-            player.Sprite.Scale = new Vector2(0.5f, 2f);
+            player.Sprite.Scale = new Vector2(0.67f, 1.5f);
             player.Sprite.Rotation = 0f;
         }
         else {
-            player.Sprite.Scale = new Vector2(2f, 0.5f);
+            player.Sprite.Scale = new Vector2(1.5f, 0.67f);
             player.Sprite.Rotation = (Math.Sign(direction.X) * direction).Angle();
         }
         
-        player.Sprite.Origin.Y = 27f;
+        player.Sprite.Origin.Y = 26f;
         player.Sprite.Position.Y = -6f;
     }
 
@@ -434,9 +435,6 @@ public static class PlayerExtensions {
         
         if (player.Ducking && player.CanUnDuck)
             player.Ducking = false;
-
-        if (dynamicData.Get<bool>("onGround") || dynamicData.Get<float>("jumpGraceTimer") > BLUE_HYPER_GRACE_TIME)
-            dynamicData.Set("jumpGraceTimer", BLUE_HYPER_GRACE_TIME);
 
         foreach (var jumpThru in player.Scene.Tracker.GetEntities<JumpThru>()) {
             if (player.CollideCheck(jumpThru) && player.Bottom - jumpThru.Top <= 6f && !dynamicData.Invoke<bool>("DashCorrectCheck", Vector2.UnitY * (jumpThru.Top - player.Bottom)))
@@ -758,6 +756,23 @@ public static class PlayerExtensions {
         Audio.Play(SFX.game_05_redbooster_end);
     }
 
+    private static float GetGroundJumpGraceTime(float value, Player player)
+        => player.TryGetData(out _, out var rushData) && player.StateMachine.State == rushData.BlueIndex ? BLUE_HYPER_GRACE_TIME_GROUND : value;
+
+    private static bool IsInFloorCorrectState(bool value, Player player) {
+        if (value)
+            return true;
+
+        if (!player.TryGetData(out _, out var rushData))
+            return false;
+
+        int state = player.StateMachine.State;
+
+        return state == rushData.BlueIndex
+               || state == rushData.RedIndex
+               || state == rushData.WhiteIndex;
+    }
+
     private static void OnTrueCollideH(Player player) {
         if (player.TryGetData(out _, out var rushData) && player.StateMachine.State == rushData.WhiteIndex)
             player.StateMachine.State = 0;
@@ -825,20 +840,6 @@ public static class PlayerExtensions {
     private static float GetWallSpeedRetentionTime(float value, Player player)
         => player.TryGetData(out _, out var rushData) && rushData.RedBoostTimer > 0f ? RED_WALL_SPEED_RETENTION_TIME : value;
 
-    private static bool IsInFloorCorrectState(bool value, Player player) {
-        if (value)
-            return true;
-
-        if (!player.TryGetData(out _, out var rushData))
-            return false;
-
-        int state = player.StateMachine.State;
-
-        return state == rushData.BlueIndex
-               || state == rushData.RedIndex
-               || state == rushData.WhiteIndex;
-    }
-    
     private static bool IsInWallbounceState(bool value, Player player)
         => value || player.TryGetData(out _, out var rushData) && player.StateMachine.State == rushData.WhiteIndex;
 
@@ -905,6 +906,11 @@ public static class PlayerExtensions {
     
     private static void Player_orig_Update_il(ILContext il) {
         var cursor = new ILCursor(il);
+
+        cursor.GotoNext(instr => instr.MatchStfld<Player>("jumpGraceTimer"));
+
+        cursor.Emit(OpCodes.Ldarg_0);
+        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(GetGroundJumpGraceTime)));
 
         cursor.GotoNext(MoveType.After, instr => instr.MatchCallvirt<Player>("get_DashAttacking"));
 
