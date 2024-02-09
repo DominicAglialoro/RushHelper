@@ -167,9 +167,13 @@ public static class PlayerExtensions {
                 return false;
             
             if (player.DashDir.X != 0f) {
-                dynamicData.Set("jumpGraceTimer", WHITE_JUMP_GRACE_TIME);
                 dynamicData.Set("dreamJump", true);
                 rushData.WhiteJumpSpeedReturn = Math.Sign(player.Speed.X) * (player.Speed.Length() - Math.Abs(player.Speed.X));
+                
+                if (Input.Jump.Pressed)
+                    player.Jump();
+                
+                dynamicData.Set("jumpGraceTimer", WHITE_JUMP_GRACE_TIME);
             }
             
             player.StateMachine.State = 0;
