@@ -532,16 +532,16 @@ public static class PlayerExtensions {
             }
         }
 
-        if (player.CanDash) {
-            player.Sprite.Scale = Vector2.One;
-
-            return player.StartDash();
-        }
-
         if (!player.NextCardIs(AbilityCardType.Green) && player.CheckUseCard()) {
             player.Sprite.Scale = Vector2.One;
 
             return player.UseCard();
+        }
+
+        if (player.CanDash) {
+            player.Sprite.Scale = Vector2.One;
+
+            return player.StartDash();
         }
         
         player.UpdateTrail(Color.Green, 0.33f);
@@ -654,9 +654,6 @@ public static class PlayerExtensions {
 
             return rushData.WhiteIndex;
         }
-        
-        if (player.CanDash)
-            return player.StartDash();
 
         if (player.CheckUseCard()) {
             if (!player.NextCardIs(AbilityCardType.White))
@@ -672,6 +669,9 @@ public static class PlayerExtensions {
 
             return rushData.WhiteIndex;
         }
+        
+        if (player.CanDash)
+            return player.StartDash();
 
         if (player.DashDir.Y == 0f) {
             foreach (var jumpThru in player.Scene.Tracker.GetEntities<JumpThru>()) {
