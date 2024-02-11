@@ -32,7 +32,7 @@ public static class PlayerExtensions {
     private const float RED_WALL_JUMP_ADD_SPEED = 40f;
     private const float RED_WALL_SPEED_RETENTION_TIME = 0.13f;
     private const float WHITE_SPEED = 280f;
-    private const float WHITE_ACCELERATE_ADD_SPEED = 80f;
+    private const float WHITE_ACCELERATE_MULT = 1.2f;
     private const float WHITE_JUMP_GRACE_TIME = 0.1f;
     private const float SURF_SPEED = 280f;
     private const float SURF_ACCELERATION = 650f;
@@ -160,8 +160,10 @@ public static class PlayerExtensions {
             && state != rushData.WhiteIndex)
             return false;
 
-        if (state == rushData.BlueIndex)
-            dynamicData.Set("jumpGraceTimer", BLUE_HYPER_GRACE_TIME_DEMON);
+        if (state == rushData.BlueIndex) {
+            if (!rushData.JustUsedCard)
+                dynamicData.Set("jumpGraceTimer", BLUE_HYPER_GRACE_TIME_DEMON);
+        }
         else if (state == rushData.WhiteIndex ) {
             if (rushData.JustUsedCard)
                 return false;
@@ -180,6 +182,18 @@ public static class PlayerExtensions {
         }
 
         return true;
+    }
+
+    public static bool IsInCustomDash(this Player player) {
+        if (!player.TryGetData(out _, out var rushData))
+            return false;
+
+        int state = player.StateMachine.State;
+
+        return state == rushData.BlueIndex
+               || state == rushData.GreenIndex
+               || state == rushData.RedIndex
+               || state == rushData.WhiteIndex;
     }
 
     private static void GetData(this Player player, out DynamicData dynamicData, out RushData rushData) {
@@ -257,7 +271,7 @@ public static class PlayerExtensions {
 
         return cardType;
     }
-    
+
     private static int UseCard(this Player player) {
         player.GetData(out _, out var rushData);
         rushData.JustUsedCard = true;
@@ -397,18 +411,6 @@ public static class PlayerExtensions {
         TrailManager.Add(player.Position, player.Sprite, player.Hair.Visible ? player.Hair : null,
             new Vector2((float) player.Facing * Math.Abs(player.Sprite.Scale.X), player.Sprite.Scale.Y),
             color, player.Depth + 1, duration);
-    }
-
-    private static bool IsInCustomDash(this Player player) {
-        if (!player.TryGetData(out _, out var rushData))
-            return false;
-
-        int state = player.StateMachine.State;
-
-        return state == rushData.BlueIndex
-               || state == rushData.GreenIndex
-               || state == rushData.RedIndex
-               || state == rushData.WhiteIndex;
     }
 
     private static IEnumerator YellowCoroutine(this Player player) {
@@ -647,8 +649,8 @@ public static class PlayerExtensions {
             var direction = dynamicData.Invoke<Vector2>("CorrectDashPrecision", dynamicData.Get<Vector2>("lastAim"));
             float dashSpeed = dynamicData.Get<Vector2>("beforeDashSpeed").Length();
 
-            if (direction != Vector2.Zero && direction == player.DashDir)
-                dashSpeed += WHITE_ACCELERATE_ADD_SPEED;
+            if (direction == player.DashDir)
+                dashSpeed *= WHITE_ACCELERATE_MULT;
 
             if (dashSpeed < WHITE_SPEED)
                 dashSpeed = WHITE_SPEED;

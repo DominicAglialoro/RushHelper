@@ -61,7 +61,7 @@ public class Demon : Actor {
         foreach (var entity in scene.Tracker.GetEntities<Demon>()) {
             var demon = (Demon) entity;
             
-            if (!demon.alive || Vector2.DistanceSquared(center, demon.Center) > radius * radius)
+            if (!demon.alive || Vector2.Distance(center, demon.Center) > radius)
                 continue;
             
             float angle = (demon.Center - center).Angle();
@@ -149,17 +149,19 @@ public class Demon : Actor {
             
         if (dashRestores >= 2)
             Audio.Play(SFX.game_10_pinkdiamond_touch, player.Position);
+
+        bool wasDashing = player.StateMachine.State == 2 || player.IsInCustomDash();
+        var direction = wasDashing ? player.DashDir : player.Speed;
             
         Die(() => {
-            var speed = player.Speed;
+            if (direction == Vector2.Zero) {
+                direction = wasDashing ? player.DashDir : player.Speed;
 
-            if (speed == Vector2.Zero)
-                speed = player.DashDir;
-
-            if (speed == Vector2.Zero)
-                return player.Facing == Facings.Right ? 0f : MathHelper.Pi;
+                if (direction == Vector2.Zero)
+                    return player.Facing == Facings.Right ? 0f : MathHelper.Pi;
+            }
             
-            return speed.Angle();
+            return direction.Angle();
         });
     }
 
@@ -168,13 +170,12 @@ public class Demon : Actor {
         feet.Visible = alive && OnGround();
 
         var player = Scene?.Tracker.GetEntity<Player>();
-
-        if (player == null)
-            return;
-        
         var eyesOffset = new Vector2(0f, sine.Value - 1f);
-        
-        eyes.Position = eyesOffset + (player.Position - (Position + eyesOffset)).SafeNormalize().Round();
+
+        if (player != null && Vector2.Distance(Position, player.Position) < 256f)
+            eyes.Position = eyesOffset + (player.Position - (Position + eyesOffset)).SafeNormalize().Round();
+        else
+            eyes.Position = eyesOffset;
     }
 
     private void Die(Func<float> getKillParticlesAngle) {
