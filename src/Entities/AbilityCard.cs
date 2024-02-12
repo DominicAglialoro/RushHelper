@@ -66,7 +66,6 @@ public class AbilityCard : Entity {
             return;
         
         Audio.Play(SFX.ui_world_journal_page_cover_forward, Position);
-        Celeste.Freeze(0.016f);
         RemoveSelf();
     }
     

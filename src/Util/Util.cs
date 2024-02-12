@@ -37,6 +37,9 @@ public static class Util {
         mesh[index + 5].Position = d;
     }
 
+    public static Color HexColorSafe(this EntityData data, string key, Color defaultColor = default)
+        => data.Values != null ? data.HexColor(key, defaultColor) : defaultColor;
+
     public static IEnumerator NextFrame(Action action) {
         action();
         

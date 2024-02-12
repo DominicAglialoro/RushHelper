@@ -8,11 +8,14 @@ namespace Celeste.Mod.RushHelper;
 [CustomEntity("rushHelper/surfPlatform"), Tracked]
 public class SurfPlatform : Solid {
     private DynamicWaterSurface waterSurface;
+    private Color color;
 
     public SurfPlatform(EntityData data, Vector2 offset) : base(data.Position + offset, data.Width, data.Height, true) {
-        waterSurface = new DynamicWaterSurface(Position, (int) Width, 4, 360f, 1300f, 1.25f);
+        color = data.HexColorSafe("color", Color.LightSkyBlue);
+        waterSurface = new DynamicWaterSurface(Position, (int) Width, 4, color * 0.3f, color * 0.8f, 360f, 1300f, 1.25f);
         SurfaceSoundIndex = 0;
-        Depth = -19999;
+        Depth = data.Bool("foreground") ? -19999 : -9999;
+        
         Add(new DisplacementRenderHook(RenderDisplacement));
     }
 
@@ -30,7 +33,7 @@ public class SurfPlatform : Solid {
     }
 
     public override void Render() {
-        Draw.Rect(X, Y + 4f, Width, Height - 4f, Water.FillColor);
+        Draw.Rect(X, Y + 4f, Width, Height - 4f, color * 0.3f);
         GameplayRenderer.End();
         waterSurface.Render(((Level) Scene).Camera);
         GameplayRenderer.Begin();

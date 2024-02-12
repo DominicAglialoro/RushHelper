@@ -22,7 +22,7 @@ public class DynamicWaterSurface {
     private int leftmostActive;
     private int rightmostActive;
 
-    public DynamicWaterSurface(Vector2 position, int width, int height, float acceleration, float diffusion, float damping) {
+    public DynamicWaterSurface(Vector2 position, int width, int height, Color fillColor, Color surfaceColor, float acceleration, float diffusion, float damping) {
         Position = position;
         Width = width;
         Height = height;
@@ -36,10 +36,10 @@ public class DynamicWaterSurface {
         surfaceMesh = new VertexPositionColor[(surface.Length - 1) * 6];
 
         for (int i = 0; i < fillMesh.Length; i++)
-            fillMesh[i].Color = Water.FillColor;
+            fillMesh[i].Color = fillColor;
         
         for (int i = 0; i < surfaceMesh.Length; i++)
-            surfaceMesh[i].Color = Water.SurfaceColor;
+            surfaceMesh[i].Color = surfaceColor;
 
         for (int quad = 0, x = 0; quad < fillMesh.Length; quad += 6, x += 4) {
             fillMesh.SetQuad(quad,
