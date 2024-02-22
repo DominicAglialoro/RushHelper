@@ -1,7 +1,7 @@
 local abilityCard = {}
 
 abilityCard.name = "rushHelper/abilityCard"
-abilityCard.depth = -100
+abilityCard.depth = -101
 abilityCard.placements = {
 	{
 		name = "yellow",

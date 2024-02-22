@@ -154,13 +154,14 @@ public class Demon : Actor {
         var direction = wasDashing ? player.DashDir : player.Speed;
             
         Die(() => {
-            if (direction == Vector2.Zero) {
-                direction = wasDashing ? player.DashDir : player.Speed;
-
-                if (direction == Vector2.Zero)
-                    return player.Facing == Facings.Right ? 0f : MathHelper.Pi;
-            }
+            if (direction != Vector2.Zero)
+                return direction.Angle();
             
+            direction = wasDashing ? player.DashDir : player.Speed;
+
+            if (direction == Vector2.Zero)
+                return player.Facing == Facings.Right ? 0f : MathHelper.Pi;
+
             return direction.Angle();
         });
     }

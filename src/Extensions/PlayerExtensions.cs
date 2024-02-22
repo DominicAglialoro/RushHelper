@@ -1140,10 +1140,16 @@ public static class PlayerExtensions {
         if (player.TryGetData(out _, out var rushData))
             rushData.RedBoostTimer = 0f;
         
+        dashBegin(player);
+
+        bool ducking = player.Ducking;
+
+        player.Ducking = false;
+        
         foreach (var entity in player.CollideAll<Demon>())
             ((Demon) entity).OnPlayer(player);
 
-        dashBegin(player);
+        player.Ducking = ducking;
     }
 
     private static void Player_UpdateSprite(On.Celeste.Player.orig_UpdateSprite updateSprite, Player player) {
