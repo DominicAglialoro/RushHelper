@@ -1,14 +1,12 @@
-local levelTitleMessage = {}
-
-levelTitleMessage.name = "rushHelper/levelTitleMessage"
-levelTitleMessage.depth = -1000000
-levelTitleMessage.texture = "@Internal@/core_message"
-levelTitleMessage.placements = {
-	name = "message",
-	data = {
-		subtitle = "",
-		title = ""
-	}
+return {
+	name = "rushHelper/levelTitleMessage",
+	placements = {
+		name = "default",
+		data = {
+			subtitle = "",
+			title = ""
+		}
+	},
+	texture = "@Internal@/core_message",
+	depth = -1000000
 }
-
-return levelTitleMessage

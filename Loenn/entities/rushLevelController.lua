@@ -1,10 +1,6 @@
-local rushLevelController = {}
-
-rushLevelController.name = "rushHelper/rushLevelController"
-rushLevelController.depth = -1000000
-rushLevelController.texture = "loenn/rushHelper/rushLevelController"
-rushLevelController.placements = {
-	name = "controller"
+return {
+	name = "rushHelper/rushLevelController",
+	placements = { name = "default" },
+	texture = "loenn/rushHelper/rushLevelController",
+	depth = -1000000
 }
-
-return rushLevelController

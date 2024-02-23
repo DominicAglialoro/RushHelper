@@ -1,5 +1,5 @@
-style.effects.rushHelper/waterPlane.name=Water Plane
 style.effects.rushHelper/cloudSea.name=Cloud Sea
+style.effects.rushHelper/waterPlane.name=Water Plane
 
 entities.rushHelper/abilityCard.placements.name.yellow=Ability Card (Yellow)
 entities.rushHelper/abilityCard.placements.name.blue=Ability Card (Blue)
@@ -7,12 +7,8 @@ entities.rushHelper/abilityCard.placements.name.green=Ability Card (Green)
 entities.rushHelper/abilityCard.placements.name.red=Ability Card (Red)
 entities.rushHelper/abilityCard.placements.name.white=Ability Card (White)
 
-entities.rushHelper/surfPlatform.placements.name.platform=Surf Platform
-
-entities.rushHelper/demon.placements.name.demon=Demon
-
-entities.rushHelper/rushGoal.placements.name.goal=Rush Goal
-
-entities.rushHelper/rushLevelController.placements.name.controller=Rush Level Controller
-
-entities.rushHelper/levelTitleMessage.placements.name.message=Level Title Message
+entities.rushHelper/demon.placements.name.default=Demon
+entities.rushHelper/levelTitleMessage.placements.name.default=Level Title Message
+entities.rushHelper/rushGoal.placements.name.default=Rush Goal
+entities.rushHelper/rushLevelController.placements.name.default=Rush Level Controller
+entities.rushHelper/surfPlatform.placements.name.default=Surf Platform
