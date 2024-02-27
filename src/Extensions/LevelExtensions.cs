@@ -7,7 +7,6 @@ public static class LevelExtensions {
     public static void WarpToNextLevel(this Level level) {
         level.OnEndOfFrame += () => {
             var player = level.Tracker.GetEntity<Player>();
-            var facing = player.Facing;
 
             player.CleanUpTriggers();
             level.TeleportTo(player, level.GetNextLevel(), Player.IntroTypes.Transition);
@@ -16,8 +15,9 @@ public static class LevelExtensions {
             player.StateMachine.State = 0;
             player.Speed = Vector2.Zero;
             player.Dashes = 1;
-            player.Facing = facing;
             player.Sprite.Scale = Vector2.One;
+            player.Facing = player.CollideFirst<SpawnFacingTrigger>()?.Facing ?? Facings.Right;
+            player.ResetStateValues();
             player.ClearRushData();
 
             var tween = Tween.Create(Tween.TweenMode.Oneshot, null, 0.1f, true);
