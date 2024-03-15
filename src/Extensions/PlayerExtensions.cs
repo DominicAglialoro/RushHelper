@@ -65,7 +65,7 @@ public static class PlayerExtensions {
     private static ILHook il_Celeste_Player_orig_Update;
 
     public static void Load() {
-        il_Celeste_Player_orig_Update = new ILHook(typeof(Player).GetMethodUnconstrained(nameof(Player.orig_Update)), Player_orig_Update_il);
+        il_Celeste_Player_orig_Update = typeof(Player).CreateHook(nameof(Player.orig_Update), Player_orig_Update_il);
         On.Celeste.Player.Update += Player_Update;
         On.Celeste.Player.OnCollideH += Player_OnCollideH;
         IL.Celeste.Player.OnCollideH += Player_OnCollideH_il;
@@ -309,7 +309,7 @@ public static class PlayerExtensions {
         player.ResetStateValues();
         dynamicData.Set("beforeDashSpeed", player.Speed);
         player.Speed = Vector2.Zero;
-        player.Sprite.Scale = new Vector2(0.4f, 1.8f);
+        player.Sprite.Scale = new Vector2(0.67f, 1.5f);
         player.Scene.Add(Engine.Pooler.Create<SpeedRing>().Init(player.Center, MathHelper.PiOver2, Color.White));
         Audio.Play(SFX.game_gen_thing_booped, player.Position);
         Celeste.Freeze(0.016f);
@@ -551,7 +551,7 @@ public static class PlayerExtensions {
         }
 
         player.UpdateTrail(Color.Green, 0.33f);
-        player.Sprite.Scale = new Vector2(0.5f, 2f);
+        player.Sprite.Scale = new Vector2(0.56f, 1.8f);
 
         return rushData.GreenIndex;
     }
@@ -921,12 +921,12 @@ public static class PlayerExtensions {
         cursor.GotoNext(instr => instr.MatchStfld<Player>("jumpGraceTimer"));
 
         cursor.Emit(OpCodes.Ldarg_0);
-        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(GetGroundJumpGraceTime)));
+        cursor.EmitCall(GetGroundJumpGraceTime);
 
         cursor.GotoNext(MoveType.After, instr => instr.MatchCallvirt<Player>("get_DashAttacking"));
 
         cursor.Emit(OpCodes.Ldarg_0);
-        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(IsInFloorCorrectState)));
+        cursor.EmitCall(IsInFloorCorrectState);
     }
 
     private static void Player_OnCollideH(On.Celeste.Player.orig_OnCollideH onCollideH, Player player, CollisionData data) {
@@ -946,20 +946,20 @@ public static class PlayerExtensions {
             instr => instr.MatchBeq(out label));
 
         cursor.Emit(OpCodes.Ldarg_0);
-        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(IsInCustomDash)));
+        cursor.EmitCall(IsInCustomDash);
         cursor.Emit(OpCodes.Brtrue_S, label);
 
         cursor.GotoNext(MoveType.Before,
             instr => instr.MatchStfld<Player>("wallSpeedRetentionTimer"));
 
         cursor.Emit(OpCodes.Ldarg_0);
-        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(GetWallSpeedRetentionTime)));
+        cursor.EmitCall(GetWallSpeedRetentionTime);
 
         cursor.Index = -1;
         cursor.MoveAfterLabels();
 
         cursor.Emit(OpCodes.Ldarg_0);
-        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(OnTrueCollideH)));
+        cursor.EmitCall(OnTrueCollideH);
     }
 
     private static void Player_OnCollideV(On.Celeste.Player.orig_OnCollideV onCollideV, Player player, CollisionData data) {
@@ -979,14 +979,14 @@ public static class PlayerExtensions {
             instr => instr.MatchBeq(out label));
 
         cursor.Emit(OpCodes.Ldarg_0);
-        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(IsInCustomDash)));
+        cursor.EmitCall(IsInCustomDash);
         cursor.Emit(OpCodes.Brtrue_S, label);
 
         cursor.Index = -1;
         cursor.MoveAfterLabels();
 
         cursor.Emit(OpCodes.Ldarg_0);
-        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(OnTrueCollideV)));
+        cursor.EmitCall(OnTrueCollideV);
     }
 
     private static void Player_OnBoundsH(On.Celeste.Player.orig_OnBoundsH onBoundsH, Player player) {
@@ -1015,7 +1015,7 @@ public static class PlayerExtensions {
         cursor.FindNext(out _, instr => instr.MatchBeq(out label));
 
         cursor.Emit(OpCodes.Ldarg_0);
-        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(IsInTransitionableState)));
+        cursor.EmitCall(IsInTransitionableState);
         cursor.Emit(OpCodes.Brtrue_S, label);
     }
 
@@ -1031,7 +1031,7 @@ public static class PlayerExtensions {
             cursor.FindNext(out _, instr => instr.MatchBeq(out label));
 
             cursor.Emit(OpCodes.Ldarg_0);
-            cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(IsInTransitionableState)));
+            cursor.EmitCall(IsInTransitionableState);
             cursor.Emit(OpCodes.Brtrue_S, label);
 
             cursor.GotoNext(instr => instr.OpCode == OpCodes.Ldc_I4_5);
@@ -1087,7 +1087,7 @@ public static class PlayerExtensions {
         cursor.GotoNext(MoveType.After, instr => instr.MatchCallvirt<Player>("get_DashAttacking"));
 
         cursor.Emit(OpCodes.Ldarg_0);
-        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(IsInWallbounceState)));
+        cursor.EmitCall(IsInWallbounceState);
     }
 
     private static int Player_NormalUpdate(On.Celeste.Player.orig_NormalUpdate normalUpdate, Player player) {
@@ -1112,30 +1112,30 @@ public static class PlayerExtensions {
             instr => instr.MatchCallvirt<Player>("get_CanDash"));
 
         cursor.Emit(OpCodes.Ldarg_0);
-        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(CheckUseCard)));
+        cursor.EmitCall(CheckUseCard);
 
         var label = cursor.DefineLabel();
 
         cursor.Emit(OpCodes.Brfalse_S, label);
         cursor.Emit(OpCodes.Ldarg_0);
-        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(UseCard)));
+        cursor.EmitCall(UseCard);
         cursor.Emit(OpCodes.Ret);
         cursor.MarkLabel(label);
 
         cursor.GotoNext(MoveType.After, instr => instr.MatchLdcR4(500f));
 
         cursor.Emit(OpCodes.Ldarg_0);
-        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(MultiplyGroundFriction)));
+        cursor.EmitCall(MultiplyGroundFriction);
 
         cursor.GotoNext(MoveType.After, instr => instr.MatchLdcR4(0.65f));
 
         cursor.Emit(OpCodes.Ldarg_0);
-        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(MultiplyAirFriction)));
+        cursor.EmitCall(MultiplyAirFriction);
 
         cursor.GotoNext(MoveType.After, instr => instr.MatchLdcR4(1f));
 
         cursor.Emit(OpCodes.Ldarg_0);
-        cursor.Emit(OpCodes.Call, typeof(PlayerExtensions).GetMethodUnconstrained(nameof(MultiplyGroundFriction)));
+        cursor.EmitCall(MultiplyGroundFriction);
     }
 
     private static void Player_DashBegin(On.Celeste.Player.orig_DashBegin dashBegin, Player player) {
@@ -1179,6 +1179,20 @@ public static class PlayerExtensions {
         else if (state == rushData.WhiteIndex) {
             if (sprite.CurrentAnimationID != "dreamDashIn" && sprite.CurrentAnimationID != "dreamDashLoop")
                 sprite.Play("dreamDashIn");
+
+            var dashDir = player.DashDir;
+
+            if (dashDir.X == 0f) {
+                player.Sprite.Scale = new Vector2(0.67f, 1.5f);
+                player.Sprite.Rotation = 0f;
+            }
+            else {
+                player.Sprite.Scale = new Vector2(1.5f, 0.67f);
+                player.Sprite.Rotation = (Math.Sign(dashDir.X) * dashDir).Angle();
+            }
+
+            player.Sprite.Origin.Y = 26f;
+            player.Sprite.Position.Y = -6f;
         }
         else
             updateSprite(player);

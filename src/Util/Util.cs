@@ -4,15 +4,18 @@ using System.Reflection;
 using FMOD.Studio;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Mono.Cecil.Cil;
+using MonoMod.Cil;
+using MonoMod.RuntimeDetour;
 
-namespace Celeste.Mod.RushHelper; 
+namespace Celeste.Mod.RushHelper;
 
 public static class Util {
     private const BindingFlags ALL_FLAGS = BindingFlags.Instance |
                                            BindingFlags.Static |
                                            BindingFlags.Public |
                                            BindingFlags.NonPublic;
-    
+
     public static EventInstance PlaySound(string name, float volume = 1f, Vector2? position = null) {
         var instance = Audio.CreateInstance(name, position);
 
@@ -25,7 +28,7 @@ public static class Util {
 
         return instance;
     }
-    
+
     public static Vector2 PreserveArea(Vector2 vec, float area = 1f) => area / (vec.X * vec.Y) * vec;
 
     public static void SetQuad(this VertexPositionColor[] mesh, int index, Vector3 a, Vector3 b, Vector3 c, Vector3 d) {
@@ -42,13 +45,13 @@ public static class Util {
 
     public static IEnumerator NextFrame(Action action) {
         action();
-        
+
         yield break;
     }
 
     public static IEnumerator AfterFrame(Action action) {
         yield return null;
-        
+
         action();
     }
 
@@ -58,7 +61,12 @@ public static class Util {
         action();
     }
 
+    public static void EmitCall(this ILCursor cursor, Delegate d) => cursor.Emit(OpCodes.Call, d.Method);
+
+    public static ILHook CreateHook(this Type type, string name, ILContext.Manipulator manipulator)
+        => new(type.GetMethod(name, ALL_FLAGS), manipulator);
+
     public static MethodInfo GetMethodUnconstrained(this Type type, string name) => type.GetMethod(name, ALL_FLAGS);
-    
+
     public static PropertyInfo GetPropertyUnconstrained(this Type type, string name) => type.GetProperty(name, ALL_FLAGS);
 }
