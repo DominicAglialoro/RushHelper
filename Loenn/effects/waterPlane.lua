@@ -1,7 +1,7 @@
 return {
 	name = "rushHelper/waterPlane",
 	canBackground = true,
-	canForeground = false,
+	canForeground = true,
 	fieldOrder = {
 		"nearY",
 		"farY",

@@ -5,6 +5,7 @@ using FMOD.Studio;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Mono.Cecil.Cil;
+using Monocle;
 using MonoMod.Cil;
 using MonoMod.RuntimeDetour;
 
@@ -42,6 +43,34 @@ public static class Util {
 
     public static Color HexColorSafe(this EntityData data, string key, Color defaultColor = default)
         => data.Values != null ? data.HexColor(key, defaultColor) : defaultColor;
+
+    public static Color HexToColorWithAlpha(string hex)
+    {
+        int num = 0;
+
+        if (hex.Length >= 1 && hex[0] == '#')
+            num = 1;
+
+        switch (hex.Length - num) {
+            case 6: {
+                int r2 = Calc.HexToByte(hex[num++]) * 16 + Calc.HexToByte(hex[num++]);
+                int g = Calc.HexToByte(hex[num++]) * 16 + Calc.HexToByte(hex[num++]);
+                int b = Calc.HexToByte(hex[num++]) * 16 + Calc.HexToByte(hex[num]);
+
+                return new Color(r2, g, b);
+            }
+            case 8: {
+                int r = Calc.HexToByte(hex[num++]) * 16 + Calc.HexToByte(hex[num++]);
+                int g = Calc.HexToByte(hex[num++]) * 16 + Calc.HexToByte(hex[num++]);
+                int b = Calc.HexToByte(hex[num++]) * 16 + Calc.HexToByte(hex[num++]);
+                int alpha = Calc.HexToByte(hex[num++]) * 16 + Calc.HexToByte(hex[num]);
+
+                return new Color(r, g, b) * (alpha / 255f);
+            }
+            default:
+                return Color.White;
+        }
+    }
 
     public static IEnumerator NextFrame(Action action) {
         action();

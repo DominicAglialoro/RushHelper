@@ -214,6 +214,20 @@ public static class PlayerExtensions {
                || state == rushData.WhiteIndex;
     }
 
+    public static bool IsInDestroyBlockState(this Player player) {
+        if (!player.TryGetData(out _, out var rushData))
+            return false;
+
+        if (rushData.RedBoostTimer > 0f)
+            return true;
+
+        int state = player.StateMachine.State;
+
+        return state == rushData.BlueIndex
+               || state == rushData.GreenIndex
+               || state == rushData.RedIndex;
+    }
+
     private static void GetData(this Player player, out DynamicData dynamicData, out RushData rushData) {
         dynamicData = DynamicData.For(player);
         rushData = dynamicData.Get<RushData>("rushHelperData");
@@ -230,7 +244,7 @@ public static class PlayerExtensions {
 
         player.Add(rushData.CardInventoryIndicator = new CardInventoryIndicator());
 
-        var level = (Level) player.Scene;
+        var level = player.SceneAs<Level>();
 
         player.Add(rushData.RedParticleEmitter = new SmoothParticleEmitter(level.ParticlesFG, RED_PARTICLE, Vector2.Zero, 6f * Vector2.One, 0f));
         rushData.RedParticleEmitter.Active = false;
@@ -385,7 +399,7 @@ public static class PlayerExtensions {
     private static void DoWhiteDash(this Player player, Vector2 direction, float speed) {
         player.DashDir = direction;
         player.Speed = speed * direction;
-        ((Level) player.Scene).Displacement.AddBurst(player.Center, 0.4f, 8f, 64f, 0.5f, Ease.QuadOut, Ease.QuadOut);
+        player.SceneAs<Level>().Displacement.AddBurst(player.Center, 0.4f, 8f, 64f, 0.5f, Ease.QuadOut, Ease.QuadOut);
 
         if (direction.X == 0f) {
             player.Sprite.Scale = new Vector2(0.67f, 1.5f);
@@ -481,7 +495,7 @@ public static class PlayerExtensions {
         player.Speed.X = aimX * BLUE_SPEED;
         player.Speed.Y = 0f;
         player.Facing = (Facings) aimX;
-        ((Level) player.Scene).Displacement.AddBurst(player.Center, 0.4f, 8f, 64f, 0.5f, Ease.QuadOut, Ease.QuadOut);
+        player.SceneAs<Level>().Displacement.AddBurst(player.Center, 0.4f, 8f, 64f, 0.5f, Ease.QuadOut, Ease.QuadOut);
         SlashFx.Burst(player.Center, player.DashDir.Angle());
 
         for (float timer = 0f; timer < BLUE_DURATION; timer += Engine.DeltaTime) {
@@ -562,6 +576,7 @@ public static class PlayerExtensions {
         player.GetData(out _, out var rushData);
         rushData.JustUsedCard = false;
         player.Speed = new Vector2(0f, GREEN_FALL_SPEED);
+        player.DashDir = Vector2.UnitY;
     }
 
     private static int RedUpdate(this Player player) {
@@ -605,7 +620,7 @@ public static class PlayerExtensions {
 
         player.GetData(out var dynamicData, out var rushData);
         rushData.JustUsedCard = false;
-        ((Level) player.Scene).Displacement.AddBurst(player.Center, 0.4f, 8f, 64f, 0.5f, Ease.QuadOut, Ease.QuadOut);
+        player.SceneAs<Level>().Displacement.AddBurst(player.Center, 0.4f, 8f, 64f, 0.5f, Ease.QuadOut, Ease.QuadOut);
         rushData.RedBoostTimer = RED_BOOST_DURATION;
         rushData.RedSoundSource.Play("event:/rushHelper/game/red_boost_sustain");
         rushData.RedSoundSource.DisposeOnTransition = false;
@@ -802,7 +817,7 @@ public static class PlayerExtensions {
             Celeste.Freeze(0.05f);
             player.StateMachine.State = 0;
 
-            var level = (Level) player.Scene;
+            var level = player.SceneAs<Level>();
 
             level.Particles.Emit(Player.P_SummitLandA, 12, player.BottomCenter, Vector2.UnitX * 3f, -1.5707964f);
             level.Particles.Emit(Player.P_SummitLandB, 8, player.BottomCenter - Vector2.UnitX * 2f, Vector2.UnitX * 2f, 3.403392f);
@@ -930,8 +945,10 @@ public static class PlayerExtensions {
     }
 
     private static void Player_OnCollideH(On.Celeste.Player.orig_OnCollideH onCollideH, Player player, CollisionData data) {
-        if (data.Hit is DashBlock dashBlock && player.TryGetData(out _, out var rushData) && (rushData.RedBoostTimer > 0f || player.StateMachine.State == rushData.BlueIndex))
+        if (data.Hit is RushDashBlock dashBlock && player.TryGetData(out _, out var rushData) && (rushData.RedBoostTimer > 0f || player.StateMachine.State == rushData.BlueIndex)) {
             dashBlock.Break(player.Center, data.Direction, true, true);
+            Celeste.Freeze(0.05f);
+        }
         else
             onCollideH(player, data);
     }

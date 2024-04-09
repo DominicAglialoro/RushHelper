@@ -1,7 +1,7 @@
 return {
 	name = "rushHelper/cloudSea",
 	canBackground = true,
-	canForeground = false,
+	canForeground = true,
 	fieldOrder = {
 		"nearY",
 		"farY",

@@ -2,33 +2,31 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <LangVersion>latest</LangVersion>
-        <CelesteLibsPath>$(HOMEPATH)\Celeste Libs</CelesteLibsPath>
-        <TargetFramework>net452</TargetFramework>
+        <CelestePath>..\..\..</CelestePath>
+        <TargetFramework>net7</TargetFramework>
         <OutputPath>bin</OutputPath>
         <PackageId>RushHelper</PackageId>
+        <RootNamespace>RushHelper</RootNamespace>
     </PropertyGroup>
     <ItemGroup>
-        <PackageReference Include="MonoMod.RuntimeDetour" Version="22.1.4.3" PrivateAssets="all" ExcludeAssets="runtime" />
-        <PackageReference Include="NLua" Version="1.4.25" PrivateAssets="all" ExcludeAssets="runtime" />
-        <PackageReference Include="YamlDotNet" Version="8.1.2" PrivateAssets="all" ExcludeAssets="runtime" />
+        <PackageReference Include="MonoMod" Version="22.7.31.1" />
+        <PackageReference Include="MonoMod.RuntimeDetour" Version="25.1.0" PrivateAssets="all" ExcludeAssets="runtime">
+          <IncludeAssets>compile; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
     </ItemGroup>
     <ItemGroup>
         <Reference Include="Celeste">
-            <HintPath>$(CelesteLibsPath)\Celeste.exe</HintPath>
+            <HintPath>$(CelestePath)\Celeste.dll</HintPath>
             <Private>false</Private>
         </Reference>
         <Reference Include="FNA">
-            <HintPath>$(CelesteLibsPath)\FNA.dll</HintPath>
+            <HintPath>$(CelestePath)\FNA.dll</HintPath>
             <Private>false</Private>
         </Reference>
         <Reference Include="MMHOOK_Celeste">
-            <HintPath>$(CelesteLibsPath)\MMHOOK_Celeste.dll</HintPath>
+            <HintPath>$(CelestePath)\MMHOOK_Celeste.dll</HintPath>
             <Private>false</Private>
         </Reference>
-        <Reference Include="System" />
-        <Reference Include="System.Core" />
-        <Reference Include="System.Data" />
-        <Reference Include="System.Xml" />
     </ItemGroup>
     <ItemGroup>
       <Folder Include="Properties" />

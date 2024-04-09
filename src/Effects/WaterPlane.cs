@@ -3,7 +3,7 @@ using Celeste.Mod.Backdrops;
 using Microsoft.Xna.Framework;
 using Monocle;
 
-namespace Celeste.Mod.HeavenRush; 
+namespace Celeste.Mod.RushHelper;
 
 [CustomBackdrop("rushHelper/waterPlane")]
 public class WaterPlane : Backdrop {
@@ -30,8 +30,8 @@ public class WaterPlane : Backdrop {
         float waveFarSpeed = data.AttrFloat("waveFarSpeed");
         int waveNearWidth = data.AttrInt("waveNearWidth");
         int waveFarWidth = data.AttrInt("waveFarWidth");
-        var waveNearColor = Calc.HexToColor(data.Attr("waveNearColor")) with { A = 0 };
-        var waveFarColor = Calc.HexToColor(data.Attr("waveFarColor")) with { A = 0 };
+        var waveNearColor = Util.HexToColorWithAlpha(data.Attr("waveNearColor"));
+        var waveFarColor = Util.HexToColorWithAlpha(data.Attr("waveFarColor"));
         float waveSpeedRandom = data.AttrFloat("waveSpeedRandom");
         float waveWidthRandom = data.AttrFloat("waveWidthRandom");
         float waveAlphaRandom = data.AttrFloat("waveAlphaRandom");
@@ -65,11 +65,9 @@ public class WaterPlane : Backdrop {
         var cameraPosition = ((Level) scene).Camera.Position.Floor();
         float startY = farY - (int) (cameraPosition.Y * farScrollY);
         float endY = nearY - (int) (cameraPosition.Y * nearScrollY);
-        
+
         Draw.SpriteBatch.Draw(texture.Texture.Texture_Safe, new Vector2(0f, startY), null, Color.White);
-        Draw.SpriteBatch.End();
-        Draw.SpriteBatch.Begin();
-        
+
         foreach (var wave in waves) {
             var projectedPosition = new Vector2(wave.XOffset - cameraPosition.X * wave.Scroll + wave.Speed * time, MathHelper.Lerp(endY, startY, wave.Depth));
             float range = 320f + wave.Width;
@@ -77,9 +75,6 @@ public class WaterPlane : Backdrop {
             projectedPosition.X = (projectedPosition.X % range + range) % range - wave.Width;
             Draw.Rect(projectedPosition, wave.Width, 1f, wave.Color);
         }
-        
-        Draw.SpriteBatch.End();
-        Draw.SpriteBatch.Begin();
     }
 
     private struct Wave {
