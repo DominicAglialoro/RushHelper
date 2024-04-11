@@ -67,6 +67,7 @@ public static class PlayerExtensions {
     public static void Load() {
         il_Celeste_Player_orig_Update = typeof(Player).CreateHook(nameof(Player.orig_Update), Player_orig_Update_il);
         On.Celeste.Player.Update += Player_Update;
+        On.Celeste.Player.Die += Player_Die;
         On.Celeste.Player.OnCollideH += Player_OnCollideH;
         IL.Celeste.Player.OnCollideH += Player_OnCollideH_il;
         On.Celeste.Player.OnCollideV += Player_OnCollideV;
@@ -87,6 +88,7 @@ public static class PlayerExtensions {
     public static void Unload() {
         il_Celeste_Player_orig_Update.Dispose();
         On.Celeste.Player.Update -= Player_Update;
+        On.Celeste.Player.Die -= Player_Die;
         On.Celeste.Player.OnCollideH -= Player_OnCollideH;
         IL.Celeste.Player.OnCollideH -= Player_OnCollideH_il;
         On.Celeste.Player.OnCollideV -= Player_OnCollideV;
@@ -944,6 +946,9 @@ public static class PlayerExtensions {
         cursor.EmitCall(IsInFloorCorrectState);
     }
 
+    private static PlayerDeadBody Player_Die(On.Celeste.Player.orig_Die die, Player player, Vector2 direction, bool evenifinvincible, bool registerdeathinstats)
+        => player.CollideCheck<RushGoal>() ? null : die(player, direction, evenifinvincible, registerdeathinstats);
+
     private static void Player_OnCollideH(On.Celeste.Player.orig_OnCollideH onCollideH, Player player, CollisionData data) {
         if (data.Hit is RushDashBlock dashBlock && player.TryGetData(out _, out var rushData) && (rushData.RedBoostTimer > 0f || player.StateMachine.State == rushData.BlueIndex)) {
             dashBlock.Break(player.Center, data.Direction, true, true);
@@ -980,8 +985,10 @@ public static class PlayerExtensions {
     }
 
     private static void Player_OnCollideV(On.Celeste.Player.orig_OnCollideV onCollideV, Player player, CollisionData data) {
-        if (data.Hit is DashBlock dashBlock && player.TryGetData(out _, out var rushData) && (rushData.RedBoostTimer > 0f || player.StateMachine.State == rushData.GreenIndex))
+        if (data.Hit is RushDashBlock dashBlock && player.TryGetData(out _, out var rushData) && (rushData.RedBoostTimer > 0f || player.StateMachine.State == rushData.GreenIndex)) {
             dashBlock.Break(player.Center, data.Direction, true, true);
+            Celeste.Freeze(0.05f);
+        }
         else
             onCollideV(player, data);
     }

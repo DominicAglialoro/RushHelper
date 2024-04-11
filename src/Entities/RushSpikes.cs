@@ -37,25 +37,25 @@ public class RushSpikes : Spikes {
     private void OnCollide(Player player) {
         switch (Direction) {
             case Directions.Up:
-                if (player.Speed.Y < 0.0 || player.Bottom > Bottom || player.IsInDestroyBlockState() && player.DashDir.Y > 0)
+                if (player.Speed.Y < 0.0 || player.Bottom > Bottom || player.IsInDestroyBlockState() && player.Speed.Y > 0)
                     break;
 
                 player.Die(new Vector2(0.0f, -1f));
                 break;
             case Directions.Down:
-                if (player.Speed.Y > 0.0 || player.IsInDestroyBlockState() && player.DashDir.Y < 0)
+                if (player.Speed.Y > 0.0 || player.IsInDestroyBlockState() && player.Speed.Y < 0)
                     break;
 
                 player.Die(new Vector2(0.0f, 1f));
                 break;
             case Directions.Left:
-                if (player.Speed.X < 0.0 || player.IsInDestroyBlockState() && player.DashDir.X > 0)
+                if (player.Speed.X < 0.0 || player.IsInDestroyBlockState() && player.Speed.X > 0)
                     break;
 
                 player.Die(new Vector2(-1f, 0.0f));
                 break;
             case Directions.Right:
-                if (player.Speed.X > 0.0 || player.IsInDestroyBlockState() && player.DashDir.X < 0)
+                if (player.Speed.X > 0.0 || player.IsInDestroyBlockState() && player.Speed.X < 0)
                     break;
 
                 player.Die(new Vector2(1f, 0.0f));

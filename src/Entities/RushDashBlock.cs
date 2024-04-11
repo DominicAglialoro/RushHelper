@@ -11,9 +11,9 @@ public class RushDashBlock : DashBlock {
 
     public override void Removed(Scene scene) {
         DestroyStaticMovers();
-        base_Removed(scene);
+        Entity_Removed(scene);
     }
 
-    [MonoModLinkTo("Celeste.Solid", "System.Void Removed(Monocle.Scene)")]
-    private void base_Removed(Scene scene) => base.Removed(scene);
+    [MonoModLinkTo("Monocle.Entity", "System.Void Removed(Monocle.Scene)")]
+    private void Entity_Removed(Scene scene) => base.Removed(scene);
 }
