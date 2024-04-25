@@ -2,7 +2,7 @@ using Celeste.Mod.Entities;
 using Microsoft.Xna.Framework;
 using Monocle;
 
-namespace Celeste.Mod.RushHelper; 
+namespace Celeste.Mod.RushHelper;
 
 [CustomEntity("rushHelper/rushLevelController"), Tracked]
 public class RushLevelController : Entity {
@@ -22,12 +22,12 @@ public class RushLevelController : Entity {
 
         if (!demonKilledThisFrame) {
             demonKilledThisFrame = true;
-            ((Level) Scene).OnEndOfFrame += () => {
+            SceneAs<Level>().OnEndOfFrame += () => {
                 if (remainingDemonCount == 0)
                     Util.PlaySound("event:/classic/sfx13", 2f);
                 else
                     Util.PlaySound("event:/classic/sfx8", 2f);
-                
+
                 demonKilledThisFrame = false;
             };
         }

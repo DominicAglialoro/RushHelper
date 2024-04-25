@@ -58,17 +58,15 @@ public class Demon : Actor {
         var sum = Vector2.Zero;
         int dashRestores = 0;
 
-        foreach (var entity in scene.Tracker.GetEntities<Demon>()) {
-            var demon = (Demon) entity;
-
-            if (!demon.alive || Vector2.Distance(center, demon.Center) > radius)
+        foreach (Demon demon in scene.Tracker.GetEntities<Demon>()) {
+            if (!demon.alive || Vector2.Distance(center, demon.Position) > radius || scene.CollideCheck<SolidTiles>(center, demon.Position))
                 continue;
 
-            float angle = (demon.Center - center).Angle();
+            float angle = (demon.Position - center).Angle();
 
             demon.Die(() => angle);
             killedCount++;
-            sum += demon.Center;
+            sum += demon.Position;
 
             if (demon.dashRestores > dashRestores)
                 dashRestores = demon.dashRestores;
@@ -158,10 +156,10 @@ public class Demon : Actor {
 
             direction = wasDashing ? player.DashDir : player.Speed;
 
-            if (direction == Vector2.Zero)
-                return player.Facing == Facings.Right ? 0f : MathHelper.Pi;
+            if (direction != Vector2.Zero)
+                return direction.Angle();
 
-            return direction.Angle();
+            return player.Facing == Facings.Right ? 0f : MathHelper.Pi;
         });
     }
 

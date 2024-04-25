@@ -8,7 +8,6 @@ entities.rushHelper/abilityCard.placements.name.red=Ability Card (Red)
 entities.rushHelper/abilityCard.placements.name.white=Ability Card (White)
 
 entities.rushHelper/demon.placements.name.default=Demon
-entities.rushHelper/levelTitleMessage.placements.name.default=Level Title Message
 entities.rushHelper/rushDashBlock.placements.name.default=Rush Dash Block
 entities.rushHelper/rushGoal.placements.name.default=Rush Goal
 entities.rushHelper/rushLevelController.placements.name.default=Rush Level Controller

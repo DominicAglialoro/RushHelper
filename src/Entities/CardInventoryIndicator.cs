@@ -3,19 +3,18 @@ using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Monocle;
 
-namespace Celeste.Mod.RushHelper; 
+namespace Celeste.Mod.RushHelper;
 
-[Tracked]
 public class CardInventoryIndicator : Component {
     private static readonly Vector2 OFFSET = new(0f, -16f);
     private static readonly float ANIM_DURATION = 0.16f;
     private static readonly float ANIM_OFFSET = 3f;
-    
+
     private List<Color> cardColors = new();
     private MTexture texture;
     private MTexture outline;
     private float animTimer = ANIM_DURATION;
-    
+
     public CardInventoryIndicator() : base(true, true) {
         texture = GFX.Game["objects/rushHelper/abilityCardIndicator/texture"];
         outline = GFX.Game["objects/rushHelper/abilityCardIndicator/outline"];
@@ -43,16 +42,16 @@ public class CardInventoryIndicator : Component {
             position.X++;
 
         float anim = animTimer / ANIM_DURATION;
-        
+
         for (int i = cardCount - 1; i >= 0; i--) {
             var drawPosition = position - i * Vector2.One;
             var drawColor = Color.White;
-        
+
             if (i == cardCount - 1) {
                 drawPosition.Y -= (1f - anim) * ANIM_OFFSET;
                 drawColor *= anim;
             }
-            
+
             outline.DrawJustified(drawPosition, new Vector2(0.5f, 1f), drawColor);
         }
 
@@ -67,7 +66,7 @@ public class CardInventoryIndicator : Component {
                 drawPosition.Y -= (1f - anim) * ANIM_OFFSET;
                 drawColor *= anim;
             }
-            
+
             texture.DrawJustified(drawPosition, new Vector2(0.5f, 1f), drawColor);
         }
     }

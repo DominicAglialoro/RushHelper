@@ -51,18 +51,6 @@ public static class PlayerExtensions {
         DirectionRange = MathHelper.TwoPi
     };
 
-    private static readonly ParticleType SURF_PARTICLE = new() {
-        Color = Color.Aquamarine,
-        ColorMode = ParticleType.ColorModes.Static,
-        FadeMode = ParticleType.FadeModes.Late,
-        LifeMin = 0.016f,
-        LifeMax = 0.033f,
-        Size = 1f,
-        SpeedMin = 200f,
-        SpeedMax = 250f,
-        DirectionRange = 0.7f
-    };
-
     private static ILHook il_Celeste_Player_orig_Update;
 
     public static void Load() {
@@ -108,8 +96,12 @@ public static class PlayerExtensions {
     }
 
     public static void ResetStateValues(this Player player) {
-        player.GetData(out var dynamicData, out _);
+        player.GetData(out var dynamicData, out var rushData);
 
+        player.StateMachine.State = 0;
+        player.Speed = Vector2.Zero;
+        player.Dashes = 1;
+        player.Sprite.Scale = Vector2.One;
         player.AutoJump = false;
         player.AutoJumpTimer = 0f;
         dynamicData.Set("dashAttackTimer", 0f);
@@ -124,20 +116,8 @@ public static class PlayerExtensions {
         dynamicData.Set("varJumpTimer", 0f);
         dynamicData.Set("wallBoostDir", 0);
         dynamicData.Set("wallBoostTimer", 0f);
-    }
 
-    public static void RefillDashes(this Player player, int dashes) {
-        if (dashes == 0)
-            return;
-
-        if (dashes > player.Dashes)
-            player.Dashes = dashes;
-
-        player.RefillStamina();
-    }
-
-    public static void ClearRushData(this Player player) {
-        if (!player.TryGetData(out _, out var rushData))
+        if (rushData == null)
             return;
 
         var cards = rushData.Cards;
@@ -147,17 +127,26 @@ public static class PlayerExtensions {
         rushData.JustUsedCard = false;
         rushData.BlueHyperTimePassed = false;
         rushData.RedBoostTimer = 0f;
-        rushData.LateRedBounceTimer = 0f;
-        rushData.LateRedBounceSpeed = 0f;
+        rushData.RedLateBounceTimer = 0f;
+        rushData.RedLateBounceSpeed = 0f;
         rushData.RedParticleEmitter.Active = false;
         rushData.RedSoundSource.Stop();
         rushData.WhiteRedirect = false;
         rushData.WhiteJumpSpeedReturn = 0f;
         rushData.WhiteSoundSource.Stop();
-        rushData.CustomTrailTimer = 0f;
         rushData.Surfing = false;
-        rushData.SurfParticleEmitter.Active = false;
         rushData.SurfSoundSource.Stop();
+    }
+
+    public static void RefillDashes(this Player player, int dashes) {
+        if (dashes == 0)
+            return;
+
+        player.RefillStamina();
+        player.RefillDash();
+
+        if (dashes > player.Dashes)
+            player.Dashes = dashes;
     }
 
     public static bool TryGiveCard(this Player player, AbilityCardType cardType) {
@@ -260,9 +249,6 @@ public static class PlayerExtensions {
         player.Add(rushData.RedParticleEmitter = new SmoothParticleEmitter(level.ParticlesFG, RED_PARTICLE, Vector2.Zero, 6f * Vector2.One, 0f));
         rushData.RedParticleEmitter.Active = false;
 
-        player.Add(rushData.SurfParticleEmitter = new SmoothParticleEmitter(level.ParticlesFG, SURF_PARTICLE, Vector2.Zero, 2f * Vector2.One, 0f));
-        rushData.SurfParticleEmitter.Active = false;
-
         player.Add(rushData.RedSoundSource = new SoundSource());
         player.Add(rushData.WhiteSoundSource = new SoundSource());
         player.Add(rushData.SurfSoundSource = new SoundSource());
@@ -331,7 +317,16 @@ public static class PlayerExtensions {
 
     private static int UseYellowCard(this Player player) {
         player.GetData(out var dynamicData, out var rushData);
-        player.ResetStateValues();
+
+        dynamicData.Set("dashAttackTimer", 0f);
+        dynamicData.Set("forceMoveXTimer", 0f);
+        dynamicData.Set("gliderBoostTimer", 0f);
+        dynamicData.Set("jumpGraceTimer", 0f);
+        dynamicData.Set("launched", false);
+        dynamicData.Set("varJumpTimer", 0f);
+        dynamicData.Set("wallBoostTimer", 0f);
+        dynamicData.Set("wallSlideTimer", 1.2f);
+
         dynamicData.Set("beforeDashSpeed", player.Speed);
         player.Speed = Vector2.Zero;
         player.Sprite.Scale = new Vector2(0.67f, 1.5f);
@@ -343,8 +338,9 @@ public static class PlayerExtensions {
     }
 
     private static int UseBlueCard(this Player player) {
-        player.GetData(out _, out var rushData);
+        player.GetData(out var dynamicData, out var rushData);
         player.PrepareForCustomDash();
+        dynamicData.Set("jumpGraceTimer", 0f);
         rushData.BlueHyperTimePassed = false;
 
         player.Sprite.Play("dash");
@@ -354,8 +350,9 @@ public static class PlayerExtensions {
     }
 
     private static int UseGreenCard(this Player player) {
-        player.GetData(out _, out var rushData);
+        player.GetData(out var dynamicData, out var rushData);
         player.PrepareForCustomDash();
+        dynamicData.Set("varJumpTimer", 0f);
 
         player.Sprite.Play("fallFast");
         Audio.Play(SFX.game_05_crackedwall_vanish, player.Position);
@@ -391,11 +388,14 @@ public static class PlayerExtensions {
     private static void PrepareForCustomDash(this Player player) {
         player.GetData(out var dynamicData, out var rushData);
 
-        bool onGround = dynamicData.Get<bool>("onGround");
+        dynamicData.Set("dashAttackTimer", 0f);
+        dynamicData.Set("forceMoveXTimer", 0f);
+        dynamicData.Set("gliderBoostTimer", 0f);
+        dynamicData.Set("launched", false);
+        dynamicData.Set("wallSlideTimer", 1.2f);
 
-        player.ResetStateValues();
         dynamicData.Set("beforeDashSpeed", player.Speed);
-        dynamicData.Set("dashStartedOnGround", onGround);
+        dynamicData.Set("dashStartedOnGround", dynamicData.Get<bool>("onGround"));
         player.Speed = Vector2.Zero;
         player.DashDir = Vector2.Zero;
 
@@ -403,7 +403,7 @@ public static class PlayerExtensions {
             player.Ducking = false;
 
         rushData.RedBoostTimer = 0f;
-        rushData.CustomTrailTimer = 0.016f;
+        dynamicData.Set("dashTrailTimer", 0.016f);
         Celeste.Freeze(0.05f);
     }
 
@@ -426,13 +426,17 @@ public static class PlayerExtensions {
     }
 
     private static void UpdateTrail(this Player player, Color color, float duration) {
-        player.GetData(out _, out var rushData);
-        rushData.CustomTrailTimer -= Engine.DeltaTime;
+        var dynamicData = DynamicData.For(player);
 
-        if (rushData.CustomTrailTimer > 0f)
+        float dashTrailTimer = dynamicData.Get<float>("dashTrailTimer") - Engine.DeltaTime;
+
+        if (dashTrailTimer > 0f) {
+            dynamicData.Set("dashTrailTimer", dashTrailTimer);
+
             return;
+        }
 
-        rushData.CustomTrailTimer = 0.016f;
+        dynamicData.Set("dashTrailTimer", 0.016f);
         TrailManager.Add(player.Position, player.Sprite, player.Hair.Visible ? player.Hair : null,
             new Vector2((float) player.Facing * Math.Abs(player.Sprite.Scale.X), player.Sprite.Scale.Y),
             color, player.Depth + 1, duration);
@@ -879,7 +883,7 @@ public static class PlayerExtensions {
         => value || player.TryGetData(out _, out var rushData) && player.StateMachine.State == rushData.WhiteIndex;
 
     private static void Player_Update(On.Celeste.Player.orig_Update update, Player player) {
-        player.GetData(out var dynamicData, out var rushData);
+        player.GetData(out _, out var rushData);
 
         if (player.CollideCheck<SurfPlatform>(player.Position + Vector2.UnitY)) {
             if (rushData == null)
@@ -907,33 +911,22 @@ public static class PlayerExtensions {
         if (rushData.RedBoostTimer < 0f)
             rushData.RedBoostTimer = 0f;
 
-        rushData.LateRedBounceTimer -= Engine.DeltaTime;
+        rushData.RedLateBounceTimer -= Engine.DeltaTime;
 
-        if (rushData.LateRedBounceTimer < 0f)
-            rushData.LateRedBounceTimer = 0f;
+        if (rushData.RedLateBounceTimer < 0f)
+            rushData.RedLateBounceTimer = 0f;
 
         update(player);
 
-        var redBoostParticleEmitter = rushData.RedParticleEmitter;
+        var redParticleEmitter = rushData.RedParticleEmitter;
 
         if (rushData.RedBoostTimer > 0f && player.Speed.Length() > 64f) {
-            redBoostParticleEmitter.Interval = 0.008f / Math.Min(Math.Abs(player.Speed.Length()) / RED_DASH_SPEED.X, 1f);
-            redBoostParticleEmitter.Position = -8f * Vector2.UnitY;
-            redBoostParticleEmitter.Start();
+            redParticleEmitter.Interval = 0.008f / Math.Min(player.Speed.Length() / RED_DASH_SPEED.X, 1f);
+            redParticleEmitter.Position = -8f * Vector2.UnitY;
+            redParticleEmitter.Start();
         }
-        else if (redBoostParticleEmitter.Active)
-            redBoostParticleEmitter.Stop();
-
-        var surfParticleEmitter = rushData.SurfParticleEmitter;
-
-        if (rushData.Surfing && dynamicData.Get<bool>("onGround") && Math.Abs(player.Speed.X) > 64f) {
-            surfParticleEmitter.Interval = 0.008f / Math.Min(Math.Abs(player.Speed.X) / SURF_SPEED, 1f);
-            surfParticleEmitter.Position = new Vector2(-4f * Math.Sign(player.Speed.X), -2f);
-            surfParticleEmitter.Direction = -MathHelper.PiOver2 - 0.4f * Math.Sign(player.Speed.X);
-            surfParticleEmitter.Start();
-        }
-        else if (surfParticleEmitter.Active)
-            surfParticleEmitter.Stop();
+        else if (redParticleEmitter.Active)
+            redParticleEmitter.Stop();
 
         if (rushData.RedBoostTimer > 0f)
             player.UpdateTrail(Color.Red * Math.Min(4f * rushData.RedBoostTimer, 1f), 0.16f);
@@ -959,7 +952,7 @@ public static class PlayerExtensions {
     }
 
     private static PlayerDeadBody Player_Die(On.Celeste.Player.orig_Die die, Player player, Vector2 direction, bool evenifinvincible, bool registerdeathinstats)
-        => player.CollideCheck<RushGoal>() ? null : die(player, direction, evenifinvincible, registerdeathinstats);
+        => !evenifinvincible && player.CollideCheck<RushGoal>() ? null : die(player, direction, evenifinvincible, registerdeathinstats);
 
     private static void Player_OnCollideH(On.Celeste.Player.orig_OnCollideH onCollideH, Player player, CollisionData data) {
         if (data.Hit is RushDashBlock dashBlock && player.TryGetData(out _, out var rushData) && (rushData.RedBoostTimer > 0f || player.StateMachine.State == rushData.BlueIndex)) {
@@ -1114,8 +1107,8 @@ public static class PlayerExtensions {
         if (dynamicData.Get<int>("moveX") == dir)
             player.Speed.X = bounceSpeed;
         else {
-            rushData.LateRedBounceTimer = RED_LATE_BOUNCE_TIME;
-            rushData.LateRedBounceSpeed = bounceSpeed;
+            rushData.RedLateBounceTimer = RED_LATE_BOUNCE_TIME;
+            rushData.RedLateBounceSpeed = bounceSpeed - player.Speed.X;
         }
 
         player.Speed.Y = Math.Min(-105f, beforeSpeedY) + liftBoost.Y;
@@ -1137,9 +1130,9 @@ public static class PlayerExtensions {
         if (nextState != 0 || !player.TryGetData(out var dynamicData, out var rushData))
             return nextState;
 
-        if (rushData.LateRedBounceTimer > 0f && Input.MoveX.Value == Math.Sign(rushData.LateRedBounceSpeed)) {
-            rushData.LateRedBounceTimer = 0f;
-            player.Speed.X = rushData.LateRedBounceSpeed;
+        if (rushData.RedLateBounceTimer > 0f && Input.MoveX.Value == Math.Sign(rushData.RedLateBounceSpeed)) {
+            rushData.RedLateBounceTimer = 0f;
+            player.Speed.X += rushData.RedLateBounceSpeed;
         }
 
         int moveX = dynamicData.Get<int>("moveX");
@@ -1194,8 +1187,8 @@ public static class PlayerExtensions {
 
         player.Ducking = false;
 
-        foreach (var entity in player.CollideAll<Demon>())
-            ((Demon) entity).OnPlayer(player);
+        foreach (Demon entity in player.CollideAll<Demon>())
+            entity.OnPlayer(player);
 
         player.Ducking = ducking;
     }
@@ -1255,16 +1248,14 @@ public static class PlayerExtensions {
         public bool JustUsedCard;
         public bool BlueHyperTimePassed;
         public float RedBoostTimer;
-        public float LateRedBounceTimer;
-        public float LateRedBounceSpeed;
+        public float RedLateBounceTimer;
+        public float RedLateBounceSpeed;
         public SmoothParticleEmitter RedParticleEmitter;
         public SoundSource RedSoundSource;
         public bool WhiteRedirect;
         public float WhiteJumpSpeedReturn;
         public SoundSource WhiteSoundSource;
-        public float CustomTrailTimer;
         public bool Surfing;
-        public SmoothParticleEmitter SurfParticleEmitter;
         public SoundSource SurfSoundSource;
     }
 }

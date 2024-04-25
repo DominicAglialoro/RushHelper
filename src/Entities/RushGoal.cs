@@ -91,11 +91,30 @@ public class RushGoal : Entity {
             Engine.TimeRate = 1f;
 
             if (!player.Dead)
-                ((Level) Scene).WarpToNextLevel();
+                WarpToNextLevel(player);
         };
 
         Add(tween);
     }
 
     private void UpdateCrystalY() => crystal.Y = bloom.Y = -12f + sine.Value;
+
+    private void WarpToNextLevel(Player player) {
+        var level = SceneAs<Level>();
+
+        level.OnEndOfFrame += () => {
+            player.CleanUpTriggers();
+            level.TeleportTo(player, level.GetNextLevel(), Player.IntroTypes.Transition);
+            level.Session.FirstLevel = false;
+            level.Camera.Position = level.GetFullCameraTargetAt(player, player.Position);
+
+            player.ResetStateValues();
+            player.Facing = player.CollideFirst<SpawnFacingTrigger>()?.Facing ?? Facings.Right;
+
+            var tween = Tween.Create(Tween.TweenMode.Oneshot, null, 0.1f, true);
+
+            tween.OnUpdate = tween => Glitch.Value = 0.5f * (1f - tween.Eased);
+            player.Add(tween);
+        };
+    }
 }

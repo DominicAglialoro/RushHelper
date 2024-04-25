@@ -8,6 +8,7 @@ using Mono.Cecil.Cil;
 using Monocle;
 using MonoMod.Cil;
 using MonoMod.RuntimeDetour;
+using MonoMod.Utils;
 
 namespace Celeste.Mod.RushHelper;
 
@@ -72,20 +73,8 @@ public static class Util {
         }
     }
 
-    public static IEnumerator NextFrame(Action action) {
-        action();
-
-        yield break;
-    }
-
     public static IEnumerator AfterFrame(Action action) {
         yield return null;
-
-        action();
-    }
-
-    public static IEnumerator AfterTime(float time, Action action) {
-        yield return time;
 
         action();
     }
@@ -95,7 +84,40 @@ public static class Util {
     public static ILHook CreateHook(this Type type, string name, ILContext.Manipulator manipulator)
         => new(type.GetMethod(name, ALL_FLAGS), manipulator);
 
-    public static MethodInfo GetMethodUnconstrained(this Type type, string name) => type.GetMethod(name, ALL_FLAGS);
+    public static int AddState(this StateMachine stateMachine, Func<int> onUpdate = null, Func<IEnumerator> coroutine = null, Action begin = null, Action end = null) {
+        var dynamicData = DynamicData.For(stateMachine);
+        var updates = dynamicData.Get<Func<int>[]>("updates");
+        var coroutines = dynamicData.Get<Func<IEnumerator>[]>("coroutines");
+        var begins = dynamicData.Get<Action[]>("begins");
+        var ends = dynamicData.Get<Action[]>("ends");
+        int nextIndex = begins.Length;
 
-    public static PropertyInfo GetPropertyUnconstrained(this Type type, string name) => type.GetProperty(name, ALL_FLAGS);
+        Array.Resize(ref updates, begins.Length + 1);
+        Array.Resize(ref coroutines, coroutines.Length + 1);
+        Array.Resize(ref begins, begins.Length + 1);
+        Array.Resize(ref ends, begins.Length + 1);
+
+        dynamicData.Set("updates", updates);
+        dynamicData.Set("coroutines", coroutines);
+        dynamicData.Set("begins", begins);
+        dynamicData.Set("ends", ends);
+        stateMachine.SetCallbacks(nextIndex, onUpdate, coroutine, begin, end);
+
+        return nextIndex;
+    }
+
+    public static void Emit(this ParticleSystem particleSystem, ParticleBurst burst, Vector2 position, float angle)
+        => particleSystem.Emit(burst.ParticleType, burst.Amount, position + burst.Offset, burst.Range, angle);
+
+    public static string GetNextLevel(this Level level) {
+        var session = level.Session;
+        var levels = session.MapData.Levels;
+
+        for (int i = levels.IndexOf(session.LevelData) + 1; i < levels.Count; i++) {
+            if (levels[i].Spawns.Count > 0)
+                return levels[i].Name;
+        }
+
+        return session.Level;
+    }
 }
