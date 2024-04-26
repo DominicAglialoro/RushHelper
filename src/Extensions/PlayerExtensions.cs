@@ -182,7 +182,7 @@ public static class PlayerExtensions {
             if (!rushData.JustUsedCard)
                 dynamicData.Set("jumpGraceTimer", BLUE_HYPER_GRACE_TIME_DEMON);
         }
-        else if (state == rushData.WhiteIndex ) {
+        else if (state == rushData.WhiteIndex) {
             if (rushData.JustUsedCard)
                 return false;
 
@@ -197,6 +197,7 @@ public static class PlayerExtensions {
             }
 
             player.StateMachine.State = 0;
+            Celeste.Freeze(0.05f);
         }
 
         return true;
