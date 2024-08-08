@@ -31,8 +31,6 @@ public static class Util {
         return instance;
     }
 
-    public static Vector2 PreserveArea(Vector2 vec, float area = 1f) => area / (vec.X * vec.Y) * vec;
-
     public static void SetQuad(this VertexPositionColor[] mesh, int index, Vector3 a, Vector3 b, Vector3 c, Vector3 d) {
         mesh[index].Position = a;
         mesh[index + 1].Position = b;

@@ -375,6 +375,7 @@ public static class PlayerExtensions {
         player.GetData(out var dynamicData, out var rushData);
         player.Speed += dynamicData.Get<Vector2>("LiftBoost");
         player.PrepareForCustomDash();
+        dynamicData.Set("varJumpTimer", 0f);
 
         player.Sprite.Scale = Vector2.One;
         player.Sprite.Play("dreamDashIn");
@@ -472,9 +473,6 @@ public static class PlayerExtensions {
         if (rushData.JustUsedCard)
             return rushData.BlueIndex;
 
-        if (player.Ducking && player.CanUnDuck)
-            player.Ducking = false;
-
         foreach (var jumpThru in player.Scene.Tracker.GetEntities<JumpThru>()) {
             if (player.CollideCheck(jumpThru) && player.Bottom - jumpThru.Top <= 6f && !dynamicData.Invoke<bool>("DashCorrectCheck", Vector2.UnitY * (jumpThru.Top - player.Bottom)))
                 player.MoveVExact((int) (jumpThru.Top - player.Bottom));
@@ -516,7 +514,10 @@ public static class PlayerExtensions {
 
         for (float timer = 0f; timer < BLUE_DURATION; timer += Engine.DeltaTime) {
             rushData.BlueHyperTimePassed = timer >= BLUE_ALLOW_JUMP_AT;
-            player.Sprite.Scale = Util.PreserveArea(Vector2.Lerp(new Vector2(2f, 0.5f), Vector2.One, timer / BLUE_DURATION));
+
+            var stretch = Vector2.Lerp(new Vector2(2f, 0.5f), Vector2.One, timer / BLUE_DURATION);
+
+            player.Sprite.Scale = stretch / (stretch.X * stretch.Y);
 
             yield return null;
         }
@@ -550,9 +551,6 @@ public static class PlayerExtensions {
 
         if (rushData.JustUsedCard)
             return rushData.GreenIndex;
-
-        if (player.Ducking && player.CanUnDuck)
-            player.Ducking = false;
 
         if (Input.Jump.Pressed) {
             if (dynamicData.Invoke<bool>("WallJumpCheck", 1)) {
@@ -672,9 +670,6 @@ public static class PlayerExtensions {
 
         if (rushData.JustUsedCard)
             return rushData.WhiteIndex;
-
-        if (player.Ducking && player.CanUnDuck)
-            player.Ducking = false;
 
         if (rushData.WhiteRedirect) {
             var direction = dynamicData.Invoke<Vector2>("CorrectDashPrecision", dynamicData.Get<Vector2>("lastAim"));
