@@ -13,6 +13,8 @@ public class RushGoal : Entity {
     private SineWave sine;
     private BloomPoint bloom;
     private bool warping;
+    private int remainingDemonCount;
+    private bool demonKilledThisFrame;
 
     public RushGoal(EntityData data, Vector2 offset) : base(data.Position + offset) {
         Collider = new Hitbox(16f, 24f, -8f, -24f);
@@ -57,7 +59,9 @@ public class RushGoal : Entity {
     public override void Awake(Scene scene) {
         base.Awake(scene);
 
-        if (Scene.Tracker.GetEntity<Demon>() == null || Scene.Tracker.GetEntity<RushLevelController>() == null)
+        remainingDemonCount = Scene.Tracker.CountEntities<Demon>();
+
+        if (remainingDemonCount == 0)
             return;
 
         Collidable = false;
@@ -65,7 +69,27 @@ public class RushGoal : Entity {
         effect.Visible = false;
     }
 
-    public void Activate() {
+    public void DemonKilled() {
+        if (remainingDemonCount == 0)
+            return;
+
+        if (!demonKilledThisFrame) {
+            demonKilledThisFrame = true;
+            SceneAs<Level>().OnEndOfFrame += () => {
+                if (remainingDemonCount == 0)
+                    Util.PlaySound("event:/classic/sfx13", 2f);
+                else
+                    Util.PlaySound("event:/classic/sfx8", 2f);
+
+                demonKilledThisFrame = false;
+            };
+        }
+
+        remainingDemonCount--;
+
+        if (remainingDemonCount != 0)
+            return;
+
         Collidable = true;
         back.Visible = true;
         effect.Visible = true;

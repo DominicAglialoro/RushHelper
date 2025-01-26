@@ -198,7 +198,7 @@ public class Demon : Actor {
             level.ParticlesFG.Emit(KILL_PARTICLE_SMALL, Position, angle);
             RemoveSelf();
         })));
-        Scene.Tracker.GetEntity<RushLevelController>()?.DemonKilled();
+        Scene.Tracker.GetEntity<RushGoal>()?.DemonKilled();
 
         level.OnEndOfFrame += () => Collidable = false;
     }

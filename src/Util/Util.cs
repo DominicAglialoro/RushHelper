@@ -79,30 +79,11 @@ public static class Util {
 
     public static void EmitCall(this ILCursor cursor, Delegate d) => cursor.Emit(OpCodes.Call, d.Method);
 
-    public static ILHook CreateHook(this Type type, string name, ILContext.Manipulator manipulator)
+    public static Hook CreateGetterHook(this Type type, string name, Delegate method)
+        => new(type.GetProperty(name, ALL_FLAGS).GetGetMethod(), method);
+
+    public static ILHook CreateILHook(this Type type, string name, ILContext.Manipulator manipulator)
         => new(type.GetMethod(name, ALL_FLAGS), manipulator);
-
-    public static int AddState(this StateMachine stateMachine, Func<int> onUpdate = null, Func<IEnumerator> coroutine = null, Action begin = null, Action end = null) {
-        var dynamicData = DynamicData.For(stateMachine);
-        var updates = dynamicData.Get<Func<int>[]>("updates");
-        var coroutines = dynamicData.Get<Func<IEnumerator>[]>("coroutines");
-        var begins = dynamicData.Get<Action[]>("begins");
-        var ends = dynamicData.Get<Action[]>("ends");
-        int nextIndex = begins.Length;
-
-        Array.Resize(ref updates, begins.Length + 1);
-        Array.Resize(ref coroutines, coroutines.Length + 1);
-        Array.Resize(ref begins, begins.Length + 1);
-        Array.Resize(ref ends, begins.Length + 1);
-
-        dynamicData.Set("updates", updates);
-        dynamicData.Set("coroutines", coroutines);
-        dynamicData.Set("begins", begins);
-        dynamicData.Set("ends", ends);
-        stateMachine.SetCallbacks(nextIndex, onUpdate, coroutine, begin, end);
-
-        return nextIndex;
-    }
 
     public static void Emit(this ParticleSystem particleSystem, ParticleBurst burst, Vector2 position, float angle)
         => particleSystem.Emit(burst.ParticleType, burst.Amount, position + burst.Offset, burst.Range, angle);
