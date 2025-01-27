@@ -59,7 +59,7 @@ public class Demon : Actor {
         int dashRestores = 0;
 
         foreach (Demon demon in scene.Tracker.GetEntities<Demon>()) {
-            if (!demon.alive || Vector2.Distance(center, demon.Position) > radius || scene.CollideCheck<SolidTiles>(center, demon.Position))
+            if (!demon.alive || Vector2.Distance(center, demon.Position) > radius)
                 continue;
 
             float angle = (demon.Position - center).Angle();

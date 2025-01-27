@@ -72,6 +72,7 @@ public static class PlayerExtensions {
         On.Celeste.Player.NormalUpdate += Player_NormalUpdate;
         IL.Celeste.Player.NormalUpdate += Player_NormalUpdate_il;
         On.Celeste.Player.DashBegin += Player_DashBegin;
+        On.Celeste.Player.Rebound += Player_Rebound;
         On.Celeste.Player.UpdateSprite += Player_UpdateSprite;
     }
 
@@ -94,6 +95,7 @@ public static class PlayerExtensions {
         On.Celeste.Player.NormalUpdate -= Player_NormalUpdate;
         IL.Celeste.Player.NormalUpdate -= Player_NormalUpdate_il;
         On.Celeste.Player.DashBegin -= Player_DashBegin;
+        On.Celeste.Player.Rebound -= Player_Rebound;
         On.Celeste.Player.UpdateSprite -= Player_UpdateSprite;
     }
 
@@ -229,11 +231,8 @@ public static class PlayerExtensions {
                || state == rushData.RedIndex;
     }
 
-    private static bool ShouldGroundAccel(this Player player) {
-        player.GetData(out var dynamicData, out var rushData);
-
-        return dynamicData.Get<bool>("onGround") && (player.CollideCheck<SurfPlatform>(player.Position + Vector2.UnitY) || rushData != null && rushData.RedBoostTimer > 0f);
-    }
+    private static bool ShouldGroundAccel(this Player player)
+        => player.TryGetData(out var dynamicData, out var rushData) && rushData.RedBoostTimer > 0f && dynamicData.Get<bool>("onGround");
 
     private static void GetData(this Player player, out DynamicData dynamicData, out RushData rushData) {
         dynamicData = DynamicData.For(player);
@@ -338,6 +337,30 @@ public static class PlayerExtensions {
         rushData.RedBoostTimer = 0f;
         dynamicData.Set("dashTrailTimer", 0.016f);
         Celeste.Freeze(0.05f);
+    }
+
+    private static void DoGreenSlam(this Player player) {
+        player.GetData(out var dynamicData, out _);
+
+        player.Speed.X = dynamicData.Get<int>("moveX") * GREEN_LAND_SPEED;
+        player.Sprite.Scale = new Vector2(1.5f, 0.75f);
+        player.Play(SFX.game_gen_fallblock_impact);
+        Celeste.Freeze(0.05f);
+        player.StateMachine.State = 0;
+
+        var level = player.SceneAs<Level>();
+
+        level.Particles.Emit(Player.P_SummitLandA, 12, player.BottomCenter, Vector2.UnitX * 3f, -1.5707964f);
+        level.Particles.Emit(Player.P_SummitLandB, 8, player.BottomCenter - Vector2.UnitX * 2f, Vector2.UnitX * 2f, 3.403392f);
+        level.Particles.Emit(Player.P_SummitLandB, 8, player.BottomCenter + Vector2.UnitX * 2f, Vector2.UnitX * 2f, -0.2617994f);
+        level.Displacement.AddBurst(player.Center, 0.4f, 16f, 128f, 1f, Ease.QuadOut, Ease.QuadOut);
+
+        int dashRestores = Demon.KillInRadius(player.Scene, player.Center, GREEN_LAND_KILL_RADIUS);
+
+        player.RefillDashes(dashRestores);
+
+        if (dashRestores >= 2)
+            player.Play(SFX.game_10_pinkdiamond_touch);
     }
 
     private static void DoWhiteDash(this Player player, Vector2 direction, float speed) {
@@ -748,22 +771,14 @@ public static class PlayerExtensions {
             }
 
             if (player.DashDir.X == 0f && player.DashDir.Y < 0f) {
-                float beforeY = player.Speed.Y;
-
                 if (dynamicData.Invoke<bool>("WallJumpCheck", 1)) {
                     dynamicData.Invoke("SuperWallJump", -1);
-
-                    if (player.Speed.Y > beforeY)
-                        player.Speed.Y = beforeY;
 
                     return 0;
                 }
 
                 if (dynamicData.Invoke<bool>("WallJumpCheck", -1)) {
                     dynamicData.Invoke("SuperWallJump", 1);
-
-                    if (player.Speed.Y > beforeY)
-                        player.Speed.Y = beforeY;
 
                     return 0;
                 }
@@ -842,32 +857,13 @@ public static class PlayerExtensions {
     }
 
     private static void OnTrueCollideV(Player player) {
-        if (!player.TryGetData(out var dynamicData, out var rushData))
+        if (!player.TryGetData(out _, out var rushData))
             return;
 
         int state = player.StateMachine.State;
 
-        if (state == rushData.GreenIndex) {
-            player.Speed.X = dynamicData.Get<int>("moveX") * GREEN_LAND_SPEED;
-            player.Sprite.Scale = new Vector2(1.5f, 0.75f);
-            player.Play(SFX.game_gen_fallblock_impact);
-            Celeste.Freeze(0.05f);
-            player.StateMachine.State = 0;
-
-            var level = player.SceneAs<Level>();
-
-            level.Particles.Emit(Player.P_SummitLandA, 12, player.BottomCenter, Vector2.UnitX * 3f, -1.5707964f);
-            level.Particles.Emit(Player.P_SummitLandB, 8, player.BottomCenter - Vector2.UnitX * 2f, Vector2.UnitX * 2f, 3.403392f);
-            level.Particles.Emit(Player.P_SummitLandB, 8, player.BottomCenter + Vector2.UnitX * 2f, Vector2.UnitX * 2f, -0.2617994f);
-            level.Displacement.AddBurst(player.Center, 0.4f, 16f, 128f, 1f, Ease.QuadOut, Ease.QuadOut);
-
-            int dashRestores = Demon.KillInRadius(player.Scene, player.Center, GREEN_LAND_KILL_RADIUS);
-
-            player.RefillDashes(dashRestores);
-
-            if (dashRestores >= 2)
-                player.Play(SFX.game_10_pinkdiamond_touch);
-        }
+        if (state == rushData.GreenIndex)
+            player.DoGreenSlam();
         else if (state == rushData.WhiteIndex)
             player.StateMachine.State = 0;
     }
@@ -898,7 +894,7 @@ public static class PlayerExtensions {
     private static float GetRunAccel(float value, Player player) => player.ShouldGroundAccel() ? SURF_ACCELERATION : value;
 
     private static float GetFriction(float value, Player player)
-        => player.CollideCheck<SurfPlatform>(player.Position + Vector2.UnitY) || player.TryGetData(out _, out var rushData) && rushData.RedBoostTimer > 0f ? 0f : value;
+        => player.TryGetData(out _, out var rushData) && rushData.RedBoostTimer > 0f ? 0f : value;
 
     private static float GetWallSpeedRetentionTime(float value, Player player)
         => player.TryGetData(out _, out var rushData) && rushData.RedBoostTimer > 0f ? RED_WALL_SPEED_RETENTION_TIME : value;
@@ -920,18 +916,7 @@ public static class PlayerExtensions {
                 rushData.RedLateBounceTimer = 0f;
         }
 
-        bool wasSurfing = player.CollideCheck<SurfPlatform>(player.Position + Vector2.UnitY);
-
         update(player);
-
-        if (player.CollideCheck<SurfPlatform>(player.Position + Vector2.UnitY)) {
-            if (!wasSurfing) {
-                if (rushData == null)
-                    player.GetOrCreateData(out rushData);
-
-                player.Play(SFX.char_mad_water_in);
-            }
-        }
 
         if (rushData == null)
             return;
@@ -1088,9 +1073,6 @@ public static class PlayerExtensions {
             return;
         }
 
-        if (player.CollideCheck<SurfPlatform>(player.Position + Vector2.UnitY))
-            Util.PlaySound(SFX.char_mad_water_out, 2f);
-
         jump(player, particles, playsfx);
 
         if (!dynamicData.Get<bool>("dreamJump"))
@@ -1201,6 +1183,13 @@ public static class PlayerExtensions {
             entity.OnPlayer(player);
 
         player.Ducking = ducking;
+    }
+
+    private static void Player_Rebound(On.Celeste.Player.orig_Rebound rebound, Player player, int direction) {
+        if (player.TryGetData(out _, out var rushData) && player.StateMachine.State == rushData.GreenIndex)
+            player.DoGreenSlam();
+
+        rebound(player, direction);
     }
 
     private static void Player_UpdateSprite(On.Celeste.Player.orig_UpdateSprite updateSprite, Player player) {
