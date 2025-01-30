@@ -12,9 +12,12 @@ public class RushGoal : Entity {
     private Sprite effect;
     private SineWave sine;
     private BloomPoint bloom;
+    private bool timerStarted;
+    private bool failed;
     private bool warping;
-    private int remainingDemonCount;
     private bool demonKilledThisFrame;
+    private int remainingDemonCount;
+    private float timeRemaining;
 
     public RushGoal(EntityData data, Vector2 offset) : base(data.Position + offset) {
         Collider = new Hitbox(16f, 24f, -8f, -24f);
@@ -49,11 +52,29 @@ public class RushGoal : Entity {
 
         Tag = Tags.FrozenUpdate;
         UpdateCrystalY();
+
+        timeRemaining = data.Float("timeLimit");
     }
 
     public override void Update() {
         base.Update();
         UpdateCrystalY();
+
+        if (!timerStarted || failed)
+            return;
+
+        float newTimeRemaining = timeRemaining - Engine.DeltaTime;
+
+        if (newTimeRemaining > 0f && newTimeRemaining < 3f && (int) newTimeRemaining < (int) timeRemaining)
+            Util.PlaySound("event:/classic/sfx2", 2f);
+
+        timeRemaining = newTimeRemaining;
+
+        if (timeRemaining > 0f)
+            return;
+
+        timeRemaining = 0f;
+        Fail();
     }
 
     public override void Awake(Scene scene) {
@@ -61,38 +82,41 @@ public class RushGoal : Entity {
 
         remainingDemonCount = Scene.Tracker.CountEntities<Demon>();
 
-        if (remainingDemonCount == 0)
-            return;
+        if (remainingDemonCount > 0)
+            SetActive(false);
+    }
 
-        Collidable = false;
-        back.Visible = false;
-        effect.Visible = false;
+    public void StartTimer() {
+        if (!timerStarted && !failed)
+            timerStarted = true;
     }
 
     public void DemonKilled() {
-        if (remainingDemonCount == 0)
+        if (!timerStarted)
+            Fail();
+
+        if (failed || remainingDemonCount == 0)
             return;
 
         if (!demonKilledThisFrame) {
             demonKilledThisFrame = true;
             SceneAs<Level>().OnEndOfFrame += () => {
+                demonKilledThisFrame = false;
+
+                if (failed)
+                    return;
+
                 if (remainingDemonCount == 0)
                     Util.PlaySound("event:/classic/sfx13", 2f);
                 else
                     Util.PlaySound("event:/classic/sfx8", 2f);
-
-                demonKilledThisFrame = false;
             };
         }
 
         remainingDemonCount--;
 
-        if (remainingDemonCount != 0)
-            return;
-
-        Collidable = true;
-        back.Visible = true;
-        effect.Visible = true;
+        if (remainingDemonCount == 0)
+            SetActive(true);
     }
 
     private void OnPlayer(Player player) {
@@ -122,6 +146,22 @@ public class RushGoal : Entity {
     }
 
     private void UpdateCrystalY() => crystal.Y = bloom.Y = -12f + sine.Value;
+
+    private void SetActive(bool active) {
+        Collidable = active;
+        back.Visible = active;
+        effect.Visible = active;
+    }
+
+    private void Fail() {
+        if (failed)
+            return;
+
+        failed = true;
+        SetActive(false);
+        Scene.Tracker.GetEntity<RushStartLine>()?.Deactivate();
+        Util.PlaySound("event:/classic/sfx14", 2f);
+    }
 
     private void WarpToNextLevel(Player player) {
         var level = SceneAs<Level>();

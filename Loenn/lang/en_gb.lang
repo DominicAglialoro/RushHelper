@@ -14,3 +14,5 @@ entities.rushHelper/rushSpikesUp.placements.name.default=Rush Spikes (Up)
 entities.rushHelper/rushSpikesDown.placements.name.default=Rush Spikes (Down)
 entities.rushHelper/rushSpikesLeft.placements.name.default=Rush Spikes (Left)
 entities.rushHelper/rushSpikesRight.placements.name.default=Rush Spikes (Right)
+
+entities.rushHelper/rushStartLine.placements.name.default=Rush Start Line

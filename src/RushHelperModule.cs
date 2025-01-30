@@ -1,7 +1,12 @@
-﻿namespace Celeste.Mod.RushHelper;
+﻿using System;
+
+namespace Celeste.Mod.RushHelper;
 
 public class RushHelperModule : EverestModule {
     public static RushHelperModule Instance { get; private set; }
+
+    public override Type SettingsType => typeof(RushHelperSettings);
+    public static RushHelperSettings Settings => (RushHelperSettings) Instance._Settings;
 
     public RushHelperModule() {
         Instance = this;
