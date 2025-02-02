@@ -25,7 +25,7 @@ public static class PlayerExtensions {
     private const float BLUE_HYPER_GRACE_TIME_DEMON = 0.1f;
     private const float GREEN_FALL_SPEED = 360f;
     private const float GREEN_LAND_SPEED = 90f;
-    private const float GREEN_LAND_KILL_RADIUS = 48f;
+    private const float GREEN_LAND_KILL_RADIUS = 40f;
     private const float RED_DASH_SPEED = 240f;
     private const float RED_DASH_DURATION = 0.15f;
     private const float RED_DASH_ATTACK = 0.3f;
@@ -262,6 +262,8 @@ public static class PlayerExtensions {
 
         player.Add(rushData.CardInventoryIndicator = new CardInventoryIndicator());
 
+        rushData.GreenKillCircle = new Circle(GREEN_LAND_KILL_RADIUS);
+
         var level = player.SceneAs<Level>();
 
         player.Add(rushData.RedParticleEmitter = new SmoothParticleEmitter(level.ParticlesFG, RED_PARTICLE, Vector2.Zero, 6f * Vector2.One, 0f));
@@ -425,7 +427,7 @@ public static class PlayerExtensions {
     }
 
     private static void DoGreenSlam(this Player player) {
-        player.GetData(out var dynamicData, out _);
+        player.GetData(out var dynamicData, out var rushData);
 
         player.Speed.X = dynamicData.Get<int>("moveX") * GREEN_LAND_SPEED;
         player.Sprite.Scale = new Vector2(1.5f, 0.75f);
@@ -440,11 +442,40 @@ public static class PlayerExtensions {
         level.Particles.Emit(Player.P_SummitLandB, 8, player.BottomCenter + Vector2.UnitX * 2f, Vector2.UnitX * 2f, -0.2617994f);
         level.Displacement.AddBurst(player.Center, 0.4f, 16f, 128f, 1f, Ease.QuadOut, Ease.QuadOut);
 
-        int dashRestores = Demon.KillInRadius(player.Scene, player.Center, GREEN_LAND_KILL_RADIUS);
+        var collider = player.Collider;
 
-        player.RefillDashes(dashRestores);
+        player.Collider = rushData.GreenKillCircle;
 
-        if (dashRestores >= 2)
+        int killedCount = 0;
+        var sum = Vector2.Zero;
+        int maxDashRestores = 0;
+
+        foreach (Demon demon in player.Scene.Tracker.GetEntities<Demon>()) {
+            int dashRestores = demon.SlamCheck(player);
+
+            if (dashRestores < 0)
+                continue;
+
+            killedCount++;
+            sum += demon.Position;
+
+            if (dashRestores > maxDashRestores)
+                maxDashRestores = dashRestores;
+        }
+
+        foreach (DashBlock dashBlock in player.CollideAll<DashBlock>())
+            dashBlock.Break(player.Center, Vector2.Zero, true, true);
+
+        player.Collider = collider;
+
+        if (killedCount == 0)
+            return;
+
+        Audio.Play(SFX.game_09_iceball_break, sum / killedCount);
+
+        player.RefillDashes(maxDashRestores);
+
+        if (maxDashRestores >= 2)
             player.Play(SFX.game_10_pinkdiamond_touch);
     }
 
@@ -825,9 +856,6 @@ public static class PlayerExtensions {
 
         if (direction.X != 0f && Math.Sign(direction.X) == Math.Sign(beforeDashSpeed.X) && Math.Abs(beforeDashSpeed.X) > dashSpeed)
             dashSpeed = Math.Abs(beforeDashSpeed.X);
-
-        if (direction.Y != 0f && Math.Sign(direction.Y) == Math.Sign(beforeDashSpeed.Y) && Math.Abs(beforeDashSpeed.Y) > dashSpeed)
-            dashSpeed = Math.Abs(beforeDashSpeed.Y);
 
         player.DoWhiteDash(direction, dashSpeed);
     }
@@ -1262,6 +1290,7 @@ public static class PlayerExtensions {
         public CardInventoryIndicator CardInventoryIndicator;
         public bool JustUsedCard;
         public bool BlueHyperTimePassed;
+        public Circle GreenKillCircle;
         public float RedBoostTimer;
         public float RedLateBounceTimer;
         public float RedLateBounceSpeed;

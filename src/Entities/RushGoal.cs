@@ -16,7 +16,6 @@ public class RushGoal : Entity {
     private bool failed;
     private bool warping;
     private bool demonKilledThisFrame;
-    private int remainingDemonCount;
     private float timeRemaining;
 
     public RushGoal(EntityData data, Vector2 offset) : base(data.Position + offset) {
@@ -60,7 +59,7 @@ public class RushGoal : Entity {
         base.Update();
         UpdateCrystalY();
 
-        if (!timerStarted || failed)
+        if (!timerStarted || failed || warping)
             return;
 
         float newTimeRemaining = timeRemaining - Engine.DeltaTime;
@@ -80,9 +79,7 @@ public class RushGoal : Entity {
     public override void Awake(Scene scene) {
         base.Awake(scene);
 
-        remainingDemonCount = Scene.Tracker.CountEntities<Demon>();
-
-        if (remainingDemonCount > 0)
+        if (Scene.Tracker.CountEntities<Demon>() > 0)
             SetActive(false);
     }
 
@@ -92,31 +89,26 @@ public class RushGoal : Entity {
     }
 
     public void DemonKilled() {
-        if (!timerStarted)
+        if (!timerStarted && Scene.Tracker.GetEntity<RushGoal>() != null)
             Fail();
 
-        if (failed || remainingDemonCount == 0)
+        if (failed || demonKilledThisFrame)
             return;
 
-        if (!demonKilledThisFrame) {
-            demonKilledThisFrame = true;
-            SceneAs<Level>().OnEndOfFrame += () => {
-                demonKilledThisFrame = false;
+        demonKilledThisFrame = true;
+        SceneAs<Level>().OnEndOfFrame += () => {
+            demonKilledThisFrame = false;
 
-                if (failed)
-                    return;
+            if (failed)
+                return;
 
-                if (remainingDemonCount == 0)
-                    Util.PlaySound("event:/classic/sfx13", 2f);
-                else
-                    Util.PlaySound("event:/classic/sfx8", 2f);
-            };
-        }
-
-        remainingDemonCount--;
-
-        if (remainingDemonCount == 0)
-            SetActive(true);
+            if (Scene.Tracker.CountEntities<Demon>() == 0) {
+                Util.PlaySound("event:/classic/sfx13", 2f);
+                SetActive(true);
+            }
+            else
+                Util.PlaySound("event:/classic/sfx8", 2f);
+        };
     }
 
     private void OnPlayer(Player player) {

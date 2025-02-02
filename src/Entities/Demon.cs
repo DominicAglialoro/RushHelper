@@ -163,6 +163,17 @@ public class Demon : Actor {
         });
     }
 
+    public int SlamCheck(Player player) {
+        if (!alive || !CollideCheck(player))
+            return -1;
+
+        float angle = (Center - player.Center).Angle();
+
+        Die(() => angle);
+
+        return dashRestores;
+    }
+
     private void UpdateVisual() {
         body.Y = outline.Y = sine.Value;
         feet.Visible = alive && OnGround();
