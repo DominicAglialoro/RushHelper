@@ -24,17 +24,12 @@ public class RushSpikes : Spikes {
         => new RushSpikes(entityData, offset, Directions.Right);
 
     public RushSpikes(EntityData data, Vector2 offset, Directions dir) : base(data, offset, dir) {
-        var dynamicData = DynamicData.For(this);
-
-        Remove(dynamicData.Get<PlayerCollider>("pc"));
-
-        var pc = new PlayerCollider(OnCollide);
-
+        Remove(pc);
+        pc = new PlayerCollider(OnCollide);
         Add(pc);
-        dynamicData.Set("pc", pc);
     }
 
-    private void OnCollide(Player player) {
+    private new void OnCollide(Player player) {
         switch (Direction) {
             case Directions.Up:
                 if (player.Speed.Y < 0.0 || player.Bottom > Bottom || player.IsInDestroyBlockState() && player.Speed.Y > 0)

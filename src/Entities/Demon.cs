@@ -53,33 +53,6 @@ public class Demon : Actor {
         SpinFlippedChance = true
     }) { Offset = offset };
 
-    public static int KillInRadius(Scene scene, Vector2 center, float radius) {
-        int killedCount = 0;
-        var sum = Vector2.Zero;
-        int dashRestores = 0;
-
-        foreach (Demon demon in scene.Tracker.GetEntities<Demon>()) {
-            if (!demon.alive || Vector2.Distance(center, demon.Position) > radius)
-                continue;
-
-            float angle = (demon.Position - center).Angle();
-
-            demon.Die(() => angle);
-            killedCount++;
-            sum += demon.Position;
-
-            if (demon.dashRestores > dashRestores)
-                dashRestores = demon.dashRestores;
-        }
-
-        if (killedCount == 0)
-            return 0;
-
-        Audio.Play(SFX.game_09_iceball_break, sum / killedCount);
-
-        return dashRestores;
-    }
-
     private int dashRestores;
     private Sprite body;
     private Image outline;
@@ -129,7 +102,7 @@ public class Demon : Actor {
         UpdateVisual();
     }
 
-    protected override void OnSquish(CollisionData data) {
+    public override void OnSquish(CollisionData data) {
         if (!alive)
             return;
 
@@ -163,15 +136,19 @@ public class Demon : Actor {
         });
     }
 
-    public int SlamCheck(Player player) {
-        if (!alive || !CollideCheck(player))
-            return -1;
+    public void Slammed(Player player) {
+        if (!alive)
+            return;
+
+        player.RefillDashes(dashRestores);
+        Audio.Play(SFX.game_09_iceball_break, Center);
+
+        if (dashRestores >= 2)
+            Audio.Play(SFX.game_10_pinkdiamond_touch, player.Position);
 
         float angle = (Center - player.Center).Angle();
 
         Die(() => angle);
-
-        return dashRestores;
     }
 
     private void UpdateVisual() {
@@ -192,6 +169,7 @@ public class Demon : Actor {
             return;
 
         alive = false;
+        Collidable = false;
 
         body.Stop();
         body.Texture = GFX.Game["objects/rushHelper/demon/shatter"];
@@ -210,7 +188,5 @@ public class Demon : Actor {
             RemoveSelf();
         })));
         Scene.Tracker.GetEntity<RushGoal>()?.DemonKilled();
-
-        level.OnEndOfFrame += () => Collidable = false;
     }
 }
