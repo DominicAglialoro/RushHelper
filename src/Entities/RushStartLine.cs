@@ -6,7 +6,7 @@ namespace Celeste.Mod.RushHelper;
 
 [CustomEntity("rushHelper/rushStartLine"), Tracked]
 public class RushStartLine : Entity {
-    private Sprite[] sprites;
+    private readonly Sprite[] sprites;
 
     public RushStartLine(EntityData data, Vector2 offset) : base(data.Position + offset) {
         int height = data.Height;

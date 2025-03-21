@@ -7,12 +7,12 @@ namespace Celeste.Mod.RushHelper;
 
 [CustomBackdrop("rushHelper/waterPlane")]
 public class WaterPlane : Backdrop {
-    private MTexture texture;
-    private Wave[] waves;
-    private int nearY;
-    private int farY;
-    private float nearScrollY;
-    private float farScrollY;
+    private readonly MTexture texture;
+    private readonly Wave[] waves;
+    private readonly int nearY;
+    private readonly int farY;
+    private readonly float nearScrollY;
+    private readonly float farScrollY;
     private float time;
 
     public WaterPlane(BinaryPacker.Element data) {

@@ -7,11 +7,12 @@ namespace Celeste.Mod.RushHelper;
 
 [CustomEntity("rushHelper/rushGoal"), Tracked]
 public class RushGoal : Entity {
-    private Image back;
-    private Sprite crystal;
-    private Sprite effect;
-    private SineWave sine;
-    private BloomPoint bloom;
+    private readonly Image back;
+    private readonly Sprite crystal;
+    private readonly Sprite effect;
+    private readonly SineWave sine;
+    private readonly BloomPoint bloom;
+
     private bool timerStarted;
     private bool failed;
     private bool warping;

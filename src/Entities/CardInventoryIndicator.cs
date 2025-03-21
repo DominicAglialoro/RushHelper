@@ -10,9 +10,10 @@ public class CardInventoryIndicator : Component {
     private static readonly float ANIM_DURATION = 0.16f;
     private static readonly float ANIM_OFFSET = 3f;
 
-    private List<Color> cardColors = new();
-    private MTexture texture;
-    private MTexture outline;
+    private readonly List<Color> cardColors = new();
+    private readonly MTexture texture;
+    private readonly MTexture outline;
+
     private float animTimer = ANIM_DURATION;
 
     public CardInventoryIndicator() : base(true, true) {

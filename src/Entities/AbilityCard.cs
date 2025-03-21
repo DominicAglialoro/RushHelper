@@ -7,11 +7,11 @@ namespace Celeste.Mod.RushHelper;
 
 [CustomEntity("rushHelper/abilityCard"), Tracked]
 public class AbilityCard : Entity {
-    private AbilityCardType cardType;
-    private Image image;
-    private Image outline;
-    private Sprite flash;
-    private SineWave sine;
+    private readonly AbilityCardType cardType;
+    private readonly Image image;
+    private readonly Image outline;
+    private readonly Sprite flash;
+    private readonly SineWave sine;
 
     public AbilityCard(EntityData data, Vector2 offset) : base(data.Position + offset) {
         cardType = data.Enum<AbilityCardType>("cardType");
@@ -24,30 +24,30 @@ public class AbilityCard : Entity {
             AbilityCardType.White => Color.White,
             _ => throw new ArgumentOutOfRangeException()
         };
-        
+
         Collider = new Hitbox(16f, 16f, -8f, -8f);
         Depth = -101;
-        
+
         Add(image = new Image(GFX.Game["objects/rushHelper/abilityCard/texture"]));
         image.CenterOrigin();
         image.SetColor(color);
-        
+
         Add(outline = new Image(GFX.Game["objects/rushHelper/abilityCard/outline"]));
         outline.CenterOrigin();
-        
+
         Add(flash = new Sprite(GFX.Game, "objects/rushHelper/abilityCard/flash"));
         flash.Add("flash", "", 0.1f);
         flash.OnFinish = _ => flash.Visible = false;
         flash.Color = Color.White * 0.5f;
         flash.CenterOrigin();
-        
+
         Add(new VertexLight(Color.Lerp(color, Color.White, 0.5f), 1f, 16, 48));
-        
+
         Add(sine = new SineWave(0.6f));
         sine.Randomize();
-        
+
         Add(new PlayerCollider(OnPlayer));
-        
+
         UpdateY();
     }
 
@@ -64,10 +64,10 @@ public class AbilityCard : Entity {
     private void OnPlayer(Player player) {
         if (!player.TryGiveCard(cardType))
             return;
-        
+
         Audio.Play(SFX.ui_world_journal_page_cover_forward, Position);
         RemoveSelf();
     }
-    
+
     private void UpdateY() => image.Y = outline.Y = flash.Y = sine.Value;
 }

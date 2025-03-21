@@ -53,12 +53,13 @@ public class Demon : Actor {
         SpinFlippedChance = true
     }) { Offset = offset };
 
-    private int dashRestores;
-    private Sprite body;
-    private Image outline;
-    private Image eyes;
-    private Image feet;
-    private SineWave sine;
+    private readonly int dashRestores;
+    private readonly Sprite body;
+    private readonly Image outline;
+    private readonly Image eyes;
+    private readonly Image feet;
+    private readonly SineWave sine;
+
     private bool alive = true;
 
     public Demon(EntityData data, Vector2 offset) : base(data.Position + offset) {
@@ -110,7 +111,22 @@ public class Demon : Actor {
         Audio.Play(SFX.game_09_iceball_break, Center);
     }
 
-    public void OnPlayer(Player player) {
+    public void Slammed(Player player) {
+        if (!alive)
+            return;
+
+        player.RefillDashes(dashRestores);
+        Audio.Play(SFX.game_09_iceball_break, Center);
+
+        if (dashRestores >= 2)
+            Audio.Play(SFX.game_10_pinkdiamond_touch, player.Position);
+
+        float angle = (Center - player.Center).Angle();
+
+        Die(() => angle);
+    }
+
+    private void OnPlayer(Player player) {
         if (!alive || !player.HitDemon())
             return;
 
@@ -134,21 +150,6 @@ public class Demon : Actor {
 
             return player.Facing == Facings.Right ? 0f : MathHelper.Pi;
         });
-    }
-
-    public void Slammed(Player player) {
-        if (!alive)
-            return;
-
-        player.RefillDashes(dashRestores);
-        Audio.Play(SFX.game_09_iceball_break, Center);
-
-        if (dashRestores >= 2)
-            Audio.Play(SFX.game_10_pinkdiamond_touch, player.Position);
-
-        float angle = (Center - player.Center).Angle();
-
-        Die(() => angle);
     }
 
     private void UpdateVisual() {

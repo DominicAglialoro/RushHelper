@@ -11,15 +11,15 @@ public class CloudSea : Backdrop {
     private const int QUAD_COUNT = 40;
     private const int X_INTERVAL = 320 / QUAD_COUNT;
     
-    private Layer[] layers;
-    private int nearY;
-    private int farY;
-    private float nearScrollY;
-    private float farScrollY;
-    private float layerHeight;
-    private bool flip;
+    private readonly Layer[] layers;
+    private readonly int nearY;
+    private readonly int farY;
+    private readonly float nearScrollY;
+    private readonly float farScrollY;
+    private readonly float layerHeight;
+    private readonly bool flip;
     private float time;
-    private float[] buffer;
+    private readonly float[] buffer;
     
     public CloudSea(BinaryPacker.Element data) {
         nearY = data.AttrInt("nearY");
