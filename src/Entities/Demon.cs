@@ -53,6 +53,17 @@ public class Demon : Actor {
         SpinFlippedChance = true
     }) { Offset = offset };
 
+    public static int CountLivingDemons(Scene scene) {
+        int count = 0;
+
+        foreach (Demon demon in scene.Tracker.GetEntities<Demon>()) {
+            if (demon.alive)
+                count++;
+        }
+
+        return count;
+    }
+
     private readonly int dashRestores;
     private readonly Sprite body;
     private readonly Image outline;
@@ -108,7 +119,6 @@ public class Demon : Actor {
             return;
 
         Die(() => data.Direction.Angle());
-        Audio.Play(SFX.game_09_iceball_break, Center);
     }
 
     public void Slammed(Player player) {
@@ -116,12 +126,17 @@ public class Demon : Actor {
             return;
 
         player.RefillDashes(dashRestores);
-        Audio.Play(SFX.game_09_iceball_break, Center);
 
         if (dashRestores >= 2)
             Audio.Play(SFX.game_10_pinkdiamond_touch, player.Position);
 
-        float angle = (Center - player.Center).Angle();
+        var direction = Center - player.Center;
+        float angle;
+
+        if (direction != Vector2.Zero)
+            angle = direction.Angle();
+        else
+            angle = player.Facing == Facings.Right ? 0f : MathHelper.Pi;
 
         Die(() => angle);
     }
@@ -131,12 +146,11 @@ public class Demon : Actor {
             return;
 
         player.RefillDashes(dashRestores);
-        Audio.Play(SFX.game_09_iceball_break, Center);
 
         if (dashRestores >= 2)
             Audio.Play(SFX.game_10_pinkdiamond_touch, player.Position);
 
-        bool wasDashing = player.StateMachine.State == 2 || player.IsInCustomDash();
+        bool wasDashing = player.StateMachine.State == Player.StDash || player.IsInCustomDash();
         var direction = wasDashing ? player.DashDir : player.Speed;
 
         Die(() => {
@@ -176,6 +190,7 @@ public class Demon : Actor {
         body.Texture = GFX.Game["objects/rushHelper/demon/shatter"];
         outline.Visible = false;
         feet.Visible = false;
+        Audio.Play(SFX.game_09_iceball_break, Center);
 
         var level = (Level) Scene;
 

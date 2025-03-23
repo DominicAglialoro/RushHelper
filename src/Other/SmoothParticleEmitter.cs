@@ -1,22 +1,20 @@
+using System;
 using Microsoft.Xna.Framework;
 using Monocle;
 
 namespace Celeste.Mod.RushHelper;
 
 public class SmoothParticleEmitter : Component {
-    public ParticleSystem System;
     public ParticleType Type;
     public Vector2 Position;
     public Vector2 Range;
     public float Interval;
-    public float? Direction;
 
     private bool startedLastFrame = true;
     private float timer;
     private Vector2 previousPosition;
 
-    public SmoothParticleEmitter(ParticleSystem system, ParticleType type, Vector2 position, Vector2 range, float interval) : base(true, false) {
-        System = system;
+    public SmoothParticleEmitter(ParticleType type, Vector2 position, Vector2 range, float interval) : base(true, false) {
         Type = type;
         Position = position;
         Range = range;
@@ -37,16 +35,13 @@ public class SmoothParticleEmitter : Component {
 
         var worldPosition = Entity.Position + Position;
         float deltaTime = Engine.DeltaTime;
-        float emitDirection = Direction ?? Type.Direction;
+        float direction = Type.Direction;
 
-        timer %= Interval;
-
-        if (timer >= 0f)
-            timer -= Interval;
+        timer += (int) (-timer / Interval) * Interval;
 
         while (timer + Interval <= deltaTime) {
             timer += Interval;
-            System.Emit(Type, 1, Vector2.Lerp(previousPosition, worldPosition, timer / deltaTime), Range, emitDirection);
+            SceneAs<Level>().ParticlesFG.Emit(Type, 1, Vector2.Lerp(previousPosition, worldPosition, timer / deltaTime), Range, direction);
         }
 
         timer -= deltaTime;

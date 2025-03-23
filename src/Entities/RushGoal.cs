@@ -15,6 +15,7 @@ public class RushGoal : Entity {
 
     private bool timerStarted;
     private bool failed;
+    private bool activated;
     private bool warping;
     private bool demonKilledThisFrame;
     private float timeRemaining;
@@ -79,21 +80,25 @@ public class RushGoal : Entity {
 
     public override void Awake(Scene scene) {
         base.Awake(scene);
-
-        if (Scene.Tracker.CountEntities<Demon>() > 0)
-            SetActive(false);
+        SetActivated(Demon.CountLivingDemons(scene) > 0);
     }
 
     public void StartTimer() {
-        if (!timerStarted && !failed)
+        if (!failed)
             timerStarted = true;
     }
 
     public void DemonKilled() {
-        if (!timerStarted && Scene.Tracker.GetEntity<RushGoal>() != null)
+        if (!timerStarted && Scene.Tracker.GetEntity<RushStartLine>() != null)
             Fail();
 
-        if (failed || demonKilledThisFrame)
+        if (failed)
+            return;
+
+        if (Demon.CountLivingDemons(Scene) == 0)
+            SetActivated(true);
+
+        if (demonKilledThisFrame)
             return;
 
         demonKilledThisFrame = true;
@@ -103,10 +108,8 @@ public class RushGoal : Entity {
             if (failed)
                 return;
 
-            if (Scene.Tracker.CountEntities<Demon>() == 0) {
+            if (activated)
                 Util.PlaySound("event:/classic/sfx13", 2f);
-                SetActive(true);
-            }
             else
                 Util.PlaySound("event:/classic/sfx8", 2f);
         };
@@ -140,10 +143,11 @@ public class RushGoal : Entity {
 
     private void UpdateCrystalY() => crystal.Y = bloom.Y = -12f + sine.Value;
 
-    private void SetActive(bool active) {
-        Collidable = active;
-        back.Visible = active;
-        effect.Visible = active;
+    private void SetActivated(bool activated) {
+        this.activated = activated;
+        Collidable = activated;
+        back.Visible = activated;
+        effect.Visible = activated;
     }
 
     private void Fail() {
@@ -151,7 +155,7 @@ public class RushGoal : Entity {
             return;
 
         failed = true;
-        SetActive(false);
+        SetActivated(false);
         Scene.Tracker.GetEntity<RushStartLine>()?.Deactivate();
         Util.PlaySound("event:/classic/sfx14", 2f);
     }
