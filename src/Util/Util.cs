@@ -78,6 +78,9 @@ public static class Util {
 
     public static void EmitCall(this ILCursor cursor, Delegate d) => cursor.Emit(OpCodes.Call, d.Method);
 
+    public static Hook CreateHook(this Type type, string name, Delegate method)
+        => new(type.GetMethod(name, ALL_FLAGS), method);
+
     public static Hook CreateGetterHook(this Type type, string name, Delegate method)
         => new(type.GetProperty(name, ALL_FLAGS).GetGetMethod(), method);
 

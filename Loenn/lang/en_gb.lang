@@ -9,10 +9,5 @@ entities.rushHelper/abilityCard.placements.name.white=Ability Card (White)
 
 entities.rushHelper/demon.placements.name.default=Demon
 entities.rushHelper/rushGoal.placements.name.default=Rush Goal
-
-entities.rushHelper/rushSpikesUp.placements.name.default=Rush Spikes (Up)
-entities.rushHelper/rushSpikesDown.placements.name.default=Rush Spikes (Down)
-entities.rushHelper/rushSpikesLeft.placements.name.default=Rush Spikes (Left)
-entities.rushHelper/rushSpikesRight.placements.name.default=Rush Spikes (Right)
-
+entities.rushHelper/rushLevelTitle.placements.name.default=Rush Level Title
 entities.rushHelper/rushStartLine.placements.name.default=Rush Start Line
