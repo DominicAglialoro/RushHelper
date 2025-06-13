@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Celeste.Mod.Entities;
 using Microsoft.Xna.Framework;
 using Monocle;
@@ -9,7 +10,10 @@ namespace Celeste.Mod.RushHelper;
 public class RushGoal : Entity {
     public readonly float TimeLimit;
 
+    public bool Warping;
+
     private readonly string warpTo;
+    private readonly string warpToWithGolden;
     private readonly Image back;
     private readonly Sprite crystal;
     private readonly Sprite effect;
@@ -19,9 +23,8 @@ public class RushGoal : Entity {
 
     private bool startThisFrame;
     private bool timerStarted;
-    private bool failed;
     private bool activated;
-    private bool warping;
+    private bool failed;
     private bool demonKilledThisFrame;
     private float timeElapsed;
     private float nextBeepAt;
@@ -32,6 +35,7 @@ public class RushGoal : Entity {
         Depth = 100;
 
         warpTo = data.String("warpTo");
+        warpToWithGolden = data.String("warpToWithGolden");
 
         var outline = new Image(GFX.Game["objects/rushHelper/rushGoal/outline"]);
 
@@ -85,7 +89,7 @@ public class RushGoal : Entity {
         base.Update();
         UpdateCrystalY();
 
-        if (warping)
+        if (Warping)
             return;
 
         Scene.OnEndOfFrame += () => {
@@ -130,7 +134,7 @@ public class RushGoal : Entity {
             if (player == null)
                 return;
 
-            if (!failed && activated) {
+            if (activated) {
                 BeginWarp(player);
                 Logger.Info("RushHelper", $"Level cleared in {timeElapsed:F}");
             }
@@ -180,17 +184,15 @@ public class RushGoal : Entity {
     }
 
     private void BeginWarp(Player player) {
-        warping = true;
+        Warping = true;
         Audio.Play(SFX.game_10_glitch_short);
-        player.Speed = player.Speed.SafeNormalize() * Math.Min(player.Speed.Length(), 120f);
+        player.Speed = player.Speed.SafeNormalize() * Math.Min(player.Speed.Length(), 240f);
+        Engine.TimeRate = 0.1f;
 
         var tween = Tween.Create(Tween.TweenMode.Oneshot, null, 0.3f, true);
 
         tween.UseRawDeltaTime = true;
-        tween.OnUpdate = tween => {
-            Glitch.Value = 0.5f * tween.Percent;
-            Engine.TimeRate = 1f - Ease.ExpoOut(Math.Min(4f * tween.Percent, 1f));
-        };
+        tween.OnUpdate = tween => Glitch.Value = 0.5f * tween.Percent;
         tween.OnComplete = _ => {
             Glitch.Value = 0.5f;
             Engine.TimeRate = 1f;
@@ -207,12 +209,48 @@ public class RushGoal : Entity {
 
         level.OnEndOfFrame += () => {
             player.CleanUpTriggers();
-            level.TeleportTo(player, !string.IsNullOrWhiteSpace(warpTo) ? warpTo : level.GetNextLevel(), Player.IntroTypes.Transition);
+
+            Strawberry golden = null;
+
+            foreach (var follower in player.Leader.Followers) {
+                if (follower.Entity is not Strawberry strawberry || !strawberry.Golden || strawberry.Winged)
+                    continue;
+
+                golden = strawberry;
+
+                break;
+            }
+
+            string nextLevel;
+
+            if (golden != null && !string.IsNullOrWhiteSpace(warpToWithGolden))
+                nextLevel = warpToWithGolden;
+            else if (!string.IsNullOrWhiteSpace(warpTo))
+                nextLevel = warpTo;
+            else
+                nextLevel = level.GetNextLevel();
+
+            if (!level.HasLevel(nextLevel))
+                nextLevel = level.Session.Level;
+
+            var pastPoints = player.Leader.PastPoints;
+            var relativePastPoints = new Vector2[pastPoints.Count];
+
+            for (int i = 0; i < pastPoints.Count; i++)
+                relativePastPoints[i] = pastPoints[i] - player.Position;
+
+            level.TeleportTo(player, nextLevel, Player.IntroTypes.Transition);
             level.Session.FirstLevel = false;
             level.Camera.Position = level.GetFullCameraTargetAt(player, player.Position);
 
             player.ResetStateValues();
             player.Facing = player.CollideFirst<SpawnFacingTrigger>()?.Facing ?? Facings.Right;
+
+            foreach (var point in relativePastPoints)
+                player.Leader.PastPoints.Add(point + player.Position);
+
+            foreach (var follower in player.Leader.Followers)
+                follower.DelayTimer = 0f;
 
             var tween = Tween.Create(Tween.TweenMode.Oneshot, null, 0.1f, true);
 

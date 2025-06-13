@@ -6,7 +6,7 @@ using Monocle;
 namespace Celeste.Mod.RushHelper;
 
 [CustomEntity("rushHelper/demon"), Tracked]
-public class Demon : Actor {
+public class Demon : Entity {
     private static readonly ParticleBurst[] KILL_PARTICLES_LARGE = {
         CreateKillParticleLarge(0, new Vector2(-4f, 0f)),
         CreateKillParticleLarge(1, new Vector2(1f, 4f)),
@@ -114,13 +114,6 @@ public class Demon : Actor {
         UpdateVisual();
     }
 
-    public override void OnSquish(CollisionData data) {
-        if (!alive)
-            return;
-
-        Die(() => data.Direction.Angle());
-    }
-
     public void Slammed(Player player) {
         if (!alive)
             return;
@@ -168,7 +161,7 @@ public class Demon : Actor {
 
     private void UpdateVisual() {
         body.Y = outline.Y = sine.Value;
-        feet.Visible = alive && OnGround();
+        feet.Visible = alive && (CollideCheck<Solid>(Position + Vector2.UnitY) || CollideCheckOutside<JumpThru>(Position + Vector2.UnitY));
 
         var player = Scene?.Tracker.GetEntity<Player>();
         var eyesOffset = new Vector2(0f, sine.Value - 1f);

@@ -101,4 +101,13 @@ public static class Util {
 
         return session.Level;
     }
+
+    public static bool HasLevel(this Level level, string name) {
+        foreach (var levelData in level.Session.MapData.Levels) {
+            if (levelData.Name == name)
+                return true;
+        }
+
+        return false;
+    }
 }

@@ -71,7 +71,6 @@ public static class PlayerExtensions {
         On.Celeste.Player.NormalUpdate += Player_NormalUpdate;
         IL.Celeste.Player.NormalUpdate += Player_NormalUpdate_il;
         IL.Celeste.Player.ClimbUpdate += InsertUseCard;
-        On.Celeste.Player.DashBegin += Player_DashBegin;
         IL.Celeste.Player.SwimUpdate += InsertUseCard;
         IL.Celeste.Player.RedDashUpdate += InsertUseCard;
         IL.Celeste.Player.HitSquashUpdate += InsertUseCard;
@@ -80,7 +79,7 @@ public static class PlayerExtensions {
         IL.Celeste.Player.StarFlyUpdate += InsertUseCard;
 
         hooks.Add(typeof(Player).CreateGetterHook(nameof(Player.DashAttacking), Player_get_DashAttacking));
-        hooks.Add(typeof(Player).CreateHook(nameof(Player.ClimbBegin), InsertResetRedBoostTimer));
+        hooks.Add(typeof(Player).CreateHook(nameof(Player.DashBegin), InsertResetRedBoostTimer));
         hooks.Add(typeof(Player).CreateHook(nameof(Player.BoostBegin), InsertResetRedBoostTimer));
         hooks.Add(typeof(Player).CreateHook(nameof(Player.SummitLaunchBegin), InsertResetRedBoostTimer));
         hooks.Add(typeof(Player).CreateHook(nameof(Player.StarFlyBegin), InsertResetRedBoostTimer));
@@ -103,7 +102,6 @@ public static class PlayerExtensions {
         On.Celeste.Player.NormalUpdate -= Player_NormalUpdate;
         IL.Celeste.Player.NormalUpdate -= Player_NormalUpdate_il;
         IL.Celeste.Player.ClimbUpdate -= InsertUseCard;
-        On.Celeste.Player.DashBegin -= Player_DashBegin;
         IL.Celeste.Player.SwimUpdate -= InsertUseCard;
         IL.Celeste.Player.RedDashUpdate -= InsertUseCard;
         IL.Celeste.Player.HitSquashUpdate -= InsertUseCard;
@@ -1062,14 +1060,14 @@ public static class PlayerExtensions {
 
         if (player.StateMachine.State == rushData.StGreen && direction == 0)
             player.DoGreenSlam();
-        else if (rushData.RedBoostTimer > 0f && direction != 0)
+        else if (rushData.RedBoostTimer > 0f)
             rushData.RedBoostTimer = 0f;
 
         rebound(player, direction);
     }
 
     private static PlayerDeadBody Player_Die(On.Celeste.Player.orig_Die die, Player player, Vector2 direction, bool evenifinvincible, bool registerdeathinstats)
-        => !evenifinvincible && player.CollideCheck<RushGoal>() ? null : die(player, direction, evenifinvincible, registerdeathinstats);
+        => !evenifinvincible && player.CollideFirst<RushGoal>()?.Warping is true ? null : die(player, direction, evenifinvincible, registerdeathinstats);
 
     private static void Player_OnCollideH_il(ILContext il) {
         var cursor = new ILCursor(il);
@@ -1196,13 +1194,6 @@ public static class PlayerExtensions {
 
         cursor.Emit(OpCodes.Ldarg_0);
         cursor.EmitCall(GetRunAccel);
-    }
-
-    private static void Player_DashBegin(On.Celeste.Player.orig_DashBegin dashBegin, Player player) {
-        if (player.TryGetData(out var rushData))
-            rushData.RedBoostTimer = 0f;
-
-        dashBegin(player);
     }
 
     private static void Player_DreamDashBegin(On.Celeste.Player.orig_DreamDashBegin dreamDashBegin, Player player) {
