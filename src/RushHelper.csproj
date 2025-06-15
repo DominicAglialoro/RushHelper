@@ -3,7 +3,7 @@
     <PropertyGroup>
         <LangVersion>latest</LangVersion>
         <CelestePath>..\..\..</CelestePath>
-        <TargetFramework>net7</TargetFramework>
+        <TargetFramework>net8.0</TargetFramework>
         <OutputPath>bin</OutputPath>
         <PackageId>RushHelper</PackageId>
         <RootNamespace>RushHelper</RootNamespace>

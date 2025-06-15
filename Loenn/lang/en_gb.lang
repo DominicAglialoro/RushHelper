@@ -7,6 +7,7 @@ entities.rushHelper/abilityCard.placements.name.green=Ability Card (Green)
 entities.rushHelper/abilityCard.placements.name.red=Ability Card (Red)
 entities.rushHelper/abilityCard.placements.name.white=Ability Card (White)
 
+entities.rushHelper/cardSwapBlock.placements.name.default=Card Swap Block
 entities.rushHelper/demon.placements.name.default=Demon
 entities.rushHelper/rushGoal.placements.name.default=Rush Goal
 entities.rushHelper/rushLevelTitle.placements.name.default=Rush Level Title

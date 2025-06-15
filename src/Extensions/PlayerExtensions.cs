@@ -286,7 +286,12 @@ public static class PlayerExtensions {
         player.GetData(out var rushData);
         rushData.JustUsedCard = true;
 
-        return player.PopCard() switch {
+        var cardType = player.PopCard();
+
+        foreach (UseCardListener listener in player.Scene.Tracker.GetComponents<UseCardListener>())
+            listener.OnUseCard?.Invoke(cardType);
+
+        return cardType switch {
             AbilityCardType.Yellow => rushData.StYellow,
             AbilityCardType.Blue => rushData.StBlue,
             AbilityCardType.Green => rushData.StGreen,
