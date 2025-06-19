@@ -170,8 +170,7 @@ public static class PlayerExtensions {
     }
 
     public static bool TryGiveCard(this Player player, AbilityCardType cardType) {
-        player.GetOrCreateData(out var rushData);
-
+        var rushData = player.GetOrCreateData();
         var cards = rushData.Cards;
 
         if (cards.Count == MAX_CARD_COUNT)
@@ -235,13 +234,13 @@ public static class PlayerExtensions {
                || state == rushData.StWhite;
     }
 
-    private static void GetData(this Player player, out RushData rushData) => rushData = DynamicData.For(player).Get<RushData>("programmatic.RushHelper.RushData");
+    private static RushData GetData(this Player player) => player.Components.Get<RushData>();
 
-    private static void GetOrCreateData(this Player player, out RushData rushData) {
-        var dynamicData = DynamicData.For(player);
+    private static RushData GetOrCreateData(this Player player) {
+        var rushData = player.Components.Get<RushData>();
 
-        if (dynamicData.TryGet("programmatic.RushHelper.RushData", out rushData))
-            return;
+        if (rushData != null)
+            return rushData;
 
         var stateMachine = player.StateMachine;
         int stYellow = stateMachine.AddState<Player>("RushYellow", player => player.StateMachine.State, YellowCoroutine, YellowBegin);
@@ -257,10 +256,16 @@ public static class PlayerExtensions {
         player.Add(rushData.WhiteSoundSource);
         rushData.RedParticleEmitter.Active = false;
 
-        dynamicData.Set("programmatic.RushHelper.RushData", rushData);
+        player.Add(rushData);
+
+        return rushData;
     }
 
-    private static bool TryGetData(this Player player, out RushData rushData) => DynamicData.For(player).TryGet("programmatic.RushHelper.RushData", out rushData);
+    private static bool TryGetData(this Player player, out RushData rushData) {
+        rushData = player.Components.Get<RushData>();
+
+        return rushData != null;
+    }
 
     private static bool NextCardIs(this Player player, AbilityCardType cardType) {
         if (!player.TryGetData(out var rushData))
@@ -283,15 +288,11 @@ public static class PlayerExtensions {
     }
 
     private static int UseCard(this Player player) {
-        player.GetData(out var rushData);
+        var rushData = player.GetData();
+
         rushData.JustUsedCard = true;
 
-        var cardType = player.PopCard();
-
-        foreach (UseCardListener listener in player.Scene.Tracker.GetComponents<UseCardListener>())
-            listener.OnUseCard?.Invoke(cardType);
-
-        return cardType switch {
+        return player.PopCard() switch {
             AbilityCardType.Yellow => rushData.StYellow,
             AbilityCardType.Blue => rushData.StBlue,
             AbilityCardType.Green => rushData.StGreen,
@@ -302,8 +303,7 @@ public static class PlayerExtensions {
     }
 
     private static AbilityCardType PopCard(this Player player) {
-        player.GetData(out var rushData);
-
+        var rushData = player.GetData();
         var cards = rushData.Cards;
         var cardInventoryIndicator = rushData.CardInventoryIndicator;
         var cardType = cards.Dequeue();
@@ -311,11 +311,14 @@ public static class PlayerExtensions {
         cardInventoryIndicator.UpdateInventory(cards);
         cardInventoryIndicator.StopAnimation();
 
+        foreach (UseCardListener listener in player.Scene.Tracker.GetComponents<UseCardListener>())
+            listener.OnUseCard?.Invoke(cardType);
+
         return cardType;
     }
 
     private static void PrepareForCustomDash(this Player player) {
-        player.GetData(out var rushData);
+        var rushData = player.GetData();
 
         player.dashAttackTimer = 0f;
         player.forceMoveXTimer = 0f;
@@ -334,7 +337,7 @@ public static class PlayerExtensions {
     }
 
     private static void DoGreenSlam(this Player player) {
-        player.GetData(out var rushData);
+        var rushData = player.GetData();
 
         player.Speed.X = player.moveX * GREEN_LAND_SPEED;
         player.Sprite.Scale = new Vector2(1.5f, 0.75f);
@@ -486,7 +489,8 @@ public static class PlayerExtensions {
     private static IEnumerator YellowCoroutine(Player player) {
         yield return null;
 
-        player.GetData(out var rushData);
+        var rushData = player.GetData();
+
         rushData.JustUsedCard = false;
         player.Speed = player.beforeDashSpeed;
 
@@ -507,7 +511,8 @@ public static class PlayerExtensions {
     }
 
     private static void BlueBegin(Player player) {
-        player.GetData(out var rushData);
+        var rushData = player.GetData();
+
         player.PrepareForCustomDash();
         player.jumpGraceTimer = 0f;
         rushData.BlueHyperTimePassed = false;
@@ -520,7 +525,7 @@ public static class PlayerExtensions {
     }
 
     private static int BlueUpdate(Player player) {
-        player.GetData(out var rushData);
+        var rushData = player.GetData();
 
         if (rushData.JustUsedCard)
             return rushData.StBlue;
@@ -550,7 +555,8 @@ public static class PlayerExtensions {
     private static IEnumerator BlueCoroutine(Player player) {
         yield return null;
 
-        player.GetData(out var rushData);
+        var rushData = player.GetData();
+
         rushData.JustUsedCard = false;
 
         int aimX = Math.Sign(player.CorrectDashPrecision(player.lastAim).X);
@@ -609,7 +615,7 @@ public static class PlayerExtensions {
     }
 
     private static int GreenUpdate(Player player) {
-        player.GetData(out var rushData);
+        var rushData = player.GetData();
 
         if (rushData.JustUsedCard)
             return rushData.StGreen;
@@ -638,7 +644,8 @@ public static class PlayerExtensions {
     private static IEnumerator GreenCoroutine(Player player) {
         yield return null;
 
-        player.GetData(out var rushData);
+        var rushData = player.GetData();
+
         rushData.JustUsedCard = false;
         player.Speed = new Vector2(0f, GREEN_FALL_SPEED);
         player.DashDir = Vector2.UnitY;
@@ -657,7 +664,7 @@ public static class PlayerExtensions {
     }
 
     private static int RedUpdate(Player player) {
-        player.GetData(out var rushData);
+        var rushData = player.GetData();
 
         if (rushData.JustUsedCard)
             return rushData.StRed;
@@ -677,7 +684,8 @@ public static class PlayerExtensions {
     private static IEnumerator RedCoroutine(Player player) {
         yield return null;
 
-        player.GetData(out var rushData);
+        var rushData = player.GetData();
+
         rushData.JustUsedCard = false;
         player.SceneAs<Level>().Displacement.AddBurst(player.Center, 0.4f, 8f, 64f, 0.5f, Ease.QuadOut, Ease.QuadOut);
         rushData.RedBoostTimer = RED_BOOST_DURATION;
@@ -708,7 +716,8 @@ public static class PlayerExtensions {
     }
 
     private static void WhiteBegin(Player player) {
-        player.GetData(out var rushData);
+        var rushData = player.GetData();
+
         player.Speed += player.LiftBoost;
         player.PrepareForCustomDash();
         player.varJumpTimer = 0f;
@@ -725,7 +734,7 @@ public static class PlayerExtensions {
     }
 
     private static int WhiteUpdate(Player player) {
-        player.GetData(out var rushData);
+        var rushData = player.GetData();
 
         if (rushData.JustUsedCard)
             return rushData.StWhite;
@@ -780,7 +789,8 @@ public static class PlayerExtensions {
     private static IEnumerator WhiteCoroutine(Player player) {
         yield return null;
 
-        player.GetData(out var rushData);
+        var rushData = player.GetData();
+
         rushData.JustUsedCard = false;
 
         var direction = player.CorrectDashPrecision(player.lastAim);
@@ -794,7 +804,8 @@ public static class PlayerExtensions {
     }
 
     private static void WhiteEnd(Player player) {
-        player.GetData(out var rushData);
+        var rushData = player.GetData();
+
         player.Sprite.Scale = Vector2.One;
         player.Sprite.Rotation = 0f;
         player.Sprite.Origin.Y = 32f;
@@ -945,8 +956,7 @@ public static class PlayerExtensions {
             return;
         }
 
-        player.GetData(out var rushData);
-
+        var rushData = player.GetData();
         int state = player.StateMachine.State;
         var sprite = player.Sprite;
 
@@ -1210,7 +1220,7 @@ public static class PlayerExtensions {
         dreamDashBegin(player);
     }
 
-    private class RushData {
+    private class RushData : Component {
         public readonly int StYellow;
         public readonly int StBlue;
         public readonly int StGreen;
@@ -1231,7 +1241,7 @@ public static class PlayerExtensions {
         public bool WhiteRedirect;
         public float WhiteJumpSpeedReturn;
 
-        public RushData(int stYellow, int stBlue, int stGreen, int stRed, int stWhite) {
+        public RushData(int stYellow, int stBlue, int stGreen, int stRed, int stWhite) : base(false, false) {
             StYellow = stYellow;
             StBlue = stBlue;
             StGreen = stGreen;

@@ -16,6 +16,7 @@
 		"Tutorials/*"
 	],
 	"exclude": [
-		"Loenn/entities/cardSwapBlock.lua"
+		"Loenn/entities/cardSwapBlock.lua",
+		"Loenn/effects/cloudSea.lua"
 	]
 }

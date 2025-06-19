@@ -11,6 +11,7 @@ public class LevelClearedTimeRemainingDisplay : Entity {
     public LevelClearedTimeRemainingDisplay(string text) {
         Tag = Tags.HUD | Tags.Global;
         this.text = text;
+        Depth = -100;
     }
 
     public override void Awake(Scene scene) {

@@ -1,6 +1,7 @@
 using System;
 using Celeste.Mod.Backdrops;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Monocle;
 
 namespace Celeste.Mod.RushHelper;
@@ -9,10 +10,12 @@ namespace Celeste.Mod.RushHelper;
 public class WaterPlane : Backdrop {
     private readonly MTexture texture;
     private readonly Wave[] waves;
+    private readonly VertexPositionColor[] mesh;
     private readonly int nearY;
     private readonly int farY;
     private readonly float nearScrollY;
     private readonly float farScrollY;
+
     private float time;
 
     public WaterPlane(BinaryPacker.Element data) {
@@ -42,17 +45,23 @@ public class WaterPlane : Backdrop {
         float c = flat ? 1f : 1f / (waveFarDensity - waveNearDensity);
 
         waves = new Wave[(int) (waveNearDensity + waveFarDensity) / 2];
+        mesh = new VertexPositionColor[waves.Length * 6];
 
-        for (int i = 0; i < waves.Length; i++) {
-            float rand = Calc.Random.NextFloat();
-            float depth = flat ? rand : MathHelper.Clamp(((float) Math.Sqrt(a * rand + b) - waveNearDensity) * c, 0f, 1f);
+        for (int i = 0, quad = 0; i < waves.Length; i++, quad += 6) {
+            float depth = (float) i / waves.Length;
+
+            if (!flat)
+                depth = MathHelper.Clamp(((float) Math.Sqrt(a * depth + b) - waveNearDensity) * c, 0f, 1f);
 
             float scroll = MathHelper.Lerp(waveNearScroll, waveFarScroll, depth);
             float speed = MathHelper.Lerp(waveNearSpeed, waveFarSpeed, depth) * Calc.Random.Range(1f - waveSpeedRandom, 1f + waveSpeedRandom);
             int width = (int) Math.Round(MathHelper.Lerp(waveNearWidth, waveFarWidth, depth) * Calc.Random.Range(1f - waveWidthRandom, 1f + waveWidthRandom));
             var color = Color.Lerp(waveNearColor, waveFarColor, depth) * Calc.Random.Range(1f - waveAlphaRandom, 1f);
 
-            waves[i] = new Wave(depth, Calc.Random.Range(0f, 320f + width), scroll, speed, width, color);
+            for (int j = quad; j < quad + 6; j++)
+                mesh[j].Color = color;
+
+            waves[i] = new Wave(depth, Calc.Random.Range(0f, 320f + width), scroll, speed, width);
         }
     }
 
@@ -67,14 +76,25 @@ public class WaterPlane : Backdrop {
         float endY = nearY - (int) (cameraPosition.Y * nearScrollY);
 
         Draw.SpriteBatch.Draw(texture.Texture.Texture_Safe, new Vector2(0f, startY), null, Color.White);
+        Draw.SpriteBatch.End();
 
-        foreach (var wave in waves) {
-            var projectedPosition = new Vector2(wave.XOffset - cameraPosition.X * wave.Scroll + wave.Speed * time, MathHelper.Lerp(endY, startY, wave.Depth));
-            float range = 320f + wave.Width;
+        for (int i = waves.Length - 1, quad = (waves.Length - 1) * 6; i >= 0; i--, quad -= 6) {
+            var wave = waves[i];
+            float x = wave.XOffset - cameraPosition.X * wave.Scroll + wave.Speed * time;
+            float y = MathHelper.Lerp(endY, startY, wave.Depth);
+            float width = wave.Width;
+            float range = 320f + width;
 
-            projectedPosition.X = (projectedPosition.X % range + range) % range - wave.Width;
-            Draw.Rect(projectedPosition, wave.Width, 1f, wave.Color);
+            x = (x % range + range) % range - width;
+            mesh.SetQuad(quad,
+                new Vector3(x, y, 0f),
+                new Vector3(x, y + 1f, 0f),
+                new Vector3(x + width, y, 0f),
+                new Vector3(x + width, y + 1f, 0f));
         }
+
+        GFX.DrawVertices(Matrix.Identity, mesh, mesh.Length);
+        Draw.SpriteBatch.Begin();
     }
 
     private struct Wave {
@@ -83,14 +103,12 @@ public class WaterPlane : Backdrop {
         public readonly float Scroll;
         public readonly float Speed;
         public readonly float Width;
-        public readonly Color Color;
 
-        public Wave(float depth, float xOffset, float scroll, float speed, float width, Color color) {
+        public Wave(float depth, float xOffset, float scroll, float speed, float width) {
             Depth = depth;
             XOffset = xOffset;
             Speed = speed;
             Scroll = scroll;
-            Color = color;
             Width = width;
         }
     }

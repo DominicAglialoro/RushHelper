@@ -138,6 +138,10 @@ public class RushGoal : Entity {
 
         if (activated) {
             BeginWarp(player);
+
+            if (!timerStarted)
+                return;
+
             Logger.Info("RushHelper", $"Level cleared in {Util.TruncateHundredths(timeElapsed)}");
 
             if (RushHelperModule.Settings.ShowTimeRemainingOnClear)
