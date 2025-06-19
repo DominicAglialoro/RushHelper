@@ -1,0 +1,21 @@
+{
+	"include": [
+		"everest.yaml",
+		"README.md",
+		"DecalRegistry.xml",
+		"{dllDir}/{dllName}.dll",
+		"{dllDir}/{dllName}.pdb",
+		"{dllDir}/{dllName}.deps.json",
+		"Ahorn/*",
+		"Assets/*",
+		"Audio/*",
+		"Dialog/*",
+		"Effects/*",
+		"Graphics/*",
+		"Loenn/*",
+		"Tutorials/*"
+	],
+	"exclude": [
+		"Loenn/entities/cardSwapBlock.lua"
+	]
+}

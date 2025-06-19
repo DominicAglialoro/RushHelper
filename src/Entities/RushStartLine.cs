@@ -28,15 +28,25 @@ public class RushStartLine : Entity {
         Collider = new Hitbox(8f, height);
         Add(new PlayerCollider(OnPlayer));
 
-        timeDisplay = new TimeDisplay();
+        timeDisplay = new TimeDisplay(Color.LimeGreen);
     }
 
     public override void Added(Scene scene) {
         base.Added(scene);
 
         timeDisplay.Position = Center;
-        timeDisplay.Visible = true;
         scene.Add(timeDisplay);
+    }
+
+    public override void Awake(Scene scene) {
+        base.Awake(scene);
+
+        var goal = scene.Tracker.GetEntity<RushGoal>();
+
+        if (goal != null)
+            timeDisplay.Show(Util.TruncateHundredths(goal.TimeLimit));
+        else
+            timeDisplay.Visible = false;
     }
 
     public override void Removed(Scene scene) {
@@ -56,23 +66,8 @@ public class RushStartLine : Entity {
     private void OnPlayer(Player player) {
         Scene.Tracker.GetEntity<RushGoal>()?.StartTimer();
         Scene.Tracker.GetEntity<RushLevelTitle>()?.FadeOut();
+        Scene.Tracker.GetEntity<LevelClearedTimeRemainingDisplay>()?.RemoveSelf();
         Util.PlaySound("event:/classic/sfx4", 2f, Center);
         Deactivate();
-    }
-
-    private class TimeDisplay : Entity {
-        public TimeDisplay() => Tag = Tags.HUD;
-
-        public override void Render() {
-            var goal = Scene.Tracker.GetEntity<RushGoal>();
-
-            if (Scene.Paused || goal == null)
-                return;
-
-            var cameraPosition = SceneAs<Level>().Camera.Position;
-            var drawPosition = 6f * (Position - cameraPosition);
-
-            ActiveFont.DrawOutline(goal.TimeLimit.ToString("F"), drawPosition, new Vector2(0.5f, 0.5f), 0.75f * Vector2.One, Color.LimeGreen, 1f, Color.Black);
-        }
     }
 }

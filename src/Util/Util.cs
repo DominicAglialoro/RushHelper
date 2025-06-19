@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Globalization;
 using System.Reflection;
 using FMOD.Studio;
 using Microsoft.Xna.Framework;
@@ -109,5 +110,23 @@ public static class Util {
         }
 
         return false;
+    }
+
+    public static string TruncateHundredths(float time) {
+        if (time <= 0f)
+            time = 0f;
+
+        string s = time.ToString("0.000", CultureInfo.InvariantCulture);
+        int index = s.IndexOf('.');
+
+        if (index < 0)
+            return s;
+
+        index += 3;
+
+        if (index >= s.Length)
+            return s;
+
+        return s.Substring(0, index);
     }
 }

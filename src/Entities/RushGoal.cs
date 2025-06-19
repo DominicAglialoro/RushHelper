@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Celeste.Mod.Entities;
 using Microsoft.Xna.Framework;
 using Monocle;
@@ -68,7 +67,7 @@ public class RushGoal : Entity {
 
         TimeLimit = data.Float("timeLimit");
 
-        timeDisplay = new TimeDisplay();
+        timeDisplay = new TimeDisplay(Color.Red);
     }
 
     public override void Added(Scene scene) {
@@ -92,55 +91,60 @@ public class RushGoal : Entity {
         if (Warping)
             return;
 
-        Scene.OnEndOfFrame += () => {
-            if (Scene == null)
-                return;
+        Scene.OnEndOfFrame += LateUpdate;
+    }
 
-            if (timerStarted)
-                timeElapsed += Engine.DeltaTime;
-            else if (startThisFrame)
-                timerStarted = true;
+    private void LateUpdate() {
+        if (Scene == null)
+            return;
 
-            bool timedOut = timerStarted && timeElapsed - TimeLimit >= 0.001f;
+        if (timerStarted)
+            timeElapsed += Engine.DeltaTime;
+        else if (startThisFrame)
+            timerStarted = true;
 
-            if (timedOut)
+        bool timedOut = timerStarted && timeElapsed - TimeLimit >= 0.001f;
+
+        if (timedOut)
+            Fail();
+
+        if (demonKilledThisFrame) {
+            demonKilledThisFrame = false;
+
+            if (!timerStarted && Scene.Tracker.GetEntity<RushStartLine>() != null)
                 Fail();
 
-            if (demonKilledThisFrame) {
-                demonKilledThisFrame = false;
+            if (!failed) {
+                if (Demon.CountLivingDemons(Scene) == 0)
+                    SetActivated(true);
 
-                if (!timerStarted && Scene.Tracker.GetEntity<RushStartLine>() != null)
-                    Fail();
-
-                if (!failed) {
-                    if (Demon.CountLivingDemons(Scene) == 0)
-                        SetActivated(true);
-
-                    if (activated)
-                        Util.PlaySound("event:/classic/sfx13", 2f);
-                    else
-                        Util.PlaySound("event:/classic/sfx8", 1.2f);
-                }
+                if (activated)
+                    Util.PlaySound("event:/classic/sfx13", 2f);
+                else
+                    Util.PlaySound("event:/classic/sfx8", 1.2f);
             }
+        }
 
-            if (!failed && beepsRemaining > 0 && timeElapsed >= nextBeepAt) {
-                Util.PlaySound("event:/classic/sfx2", 2f);
-                beepsRemaining--;
-                nextBeepAt += 0.5f;
-            }
+        if (!failed && beepsRemaining > 0 && timeElapsed >= nextBeepAt) {
+            Util.PlaySound("event:/classic/sfx2", 2f);
+            beepsRemaining--;
+            nextBeepAt += 0.5f;
+        }
 
-            var player = CollideFirst<Player>();
+        var player = CollideFirst<Player>();
 
-            if (player == null)
-                return;
+        if (player == null)
+            return;
 
-            if (activated) {
-                BeginWarp(player);
-                Logger.Info("RushHelper", $"Level cleared in {timeElapsed:F}");
-            }
-            else if (timedOut && !timeDisplay.Visible && Demon.CountLivingDemons(Scene) == 0)
-                timeDisplay.Show(timeElapsed - TimeLimit);
-        };
+        if (activated) {
+            BeginWarp(player);
+            Logger.Info("RushHelper", $"Level cleared in {Util.TruncateHundredths(timeElapsed)}");
+
+            if (RushHelperModule.Settings.ShowTimeRemainingOnClear)
+                Scene.Add(new LevelClearedTimeRemainingDisplay($"-{Util.TruncateHundredths(TimeLimit - timeElapsed)}"));
+        }
+        else if (timedOut && !timeDisplay.Visible && Demon.CountLivingDemons(Scene) == 0)
+            timeDisplay.Show($"+{Util.TruncateHundredths(timeElapsed - TimeLimit)}");
     }
 
     public override void Awake(Scene scene) {
@@ -257,28 +261,5 @@ public class RushGoal : Entity {
             tween.OnUpdate = tween => Glitch.Value = 0.5f * (1f - tween.Eased);
             player.Add(tween);
         };
-    }
-
-    private class TimeDisplay : Entity {
-        private float time;
-
-        public TimeDisplay() => Tag = Tags.HUD;
-
-        public override void Render() {
-            var goal = Scene.Tracker.GetEntity<RushGoal>();
-
-            if (Scene.Paused || goal == null)
-                return;
-
-            var cameraPosition = SceneAs<Level>().Camera.Position;
-            var drawPosition = 6f * (Position - cameraPosition);
-
-            ActiveFont.DrawOutline($"+{time:F}", drawPosition, new Vector2(0.5f, 0.5f), 0.75f * Vector2.One, Color.Red, 1f, Color.Black);
-        }
-
-        public void Show(float time) {
-            this.time = time;
-            Visible = true;
-        }
     }
 }

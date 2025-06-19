@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Runtime.Intrinsics;
 using Celeste.Mod.Entities;
 using FMOD.Studio;
 using Microsoft.Xna.Framework;
