@@ -6,7 +6,6 @@ using Mono.Cecil.Cil;
 using Monocle;
 using MonoMod.Cil;
 using MonoMod.RuntimeDetour;
-using MonoMod.Utils;
 
 namespace Celeste.Mod.RushHelper;
 
@@ -20,9 +19,8 @@ public static class PlayerExtensions {
     private const float BLUE_END_SPEED = 240f;
     private const float BLUE_MAX_END_SPEED = 325f;
     private const float BLUE_DURATION = 0.15f;
-    private const float BLUE_ALLOW_JUMP_AT = 0.05f;
-    private const float BLUE_HYPER_GRACE_TIME_GROUND = 0.05f;
-    private const float BLUE_HYPER_GRACE_TIME_DEMON = 0.1f;
+    private const float BLUE_ALLOW_JUMP_AT = 0.016f;
+    private const float BLUE_HYPER_GRACE_TIME = 0.05f;
     private const float GREEN_FALL_SPEED = 360f;
     private const float GREEN_LAND_SPEED = 90f;
     private const float GREEN_LAND_KILL_RADIUS = 40f;
@@ -30,8 +28,6 @@ public static class PlayerExtensions {
     private const float RED_DASH_DURATION = 0.15f;
     private const float RED_DASH_ATTACK = 0.3f;
     private const float RED_BOOST_DURATION = 1f;
-    private const float RED_ACCEL_SPEED = 240f;
-    private const float RED_ACCEL_ACCELERATION = 2000f;
     private const float RED_BOUNCE_ADD_SPEED = 40f;
     private const float RED_LATE_BOUNCE_TIME = 0.1f;
     private const float RED_WALL_SPEED_RETENTION_TIME = 0.1f;
@@ -198,8 +194,8 @@ public static class PlayerExtensions {
             return false;
 
         if (state == rushData.StBlue) {
-            if (!rushData.JustUsedCard)
-                player.jumpGraceTimer = BLUE_HYPER_GRACE_TIME_DEMON;
+            if (!rushData.JustUsedCard && rushData.BlueHyperTimePassed)
+                player.jumpGraceTimer = BLUE_HYPER_GRACE_TIME;
         }
         else if (state == rushData.StWhite) {
             if (rushData.JustUsedCard)
@@ -547,7 +543,7 @@ public static class PlayerExtensions {
         if (player.TryWallJump())
             return Player.StNormal;
 
-        player.UpdateTrail(Color.Blue, 0.66f);
+        player.UpdateTrail(rushData.BlueHyperTimePassed ? Color.Blue : Color.Blue * 0.25f, 0.66f);
 
         return rushData.StBlue;
     }
@@ -828,8 +824,15 @@ public static class PlayerExtensions {
     private static float GetWallBoostSpeed(float value, Player player)
         => player.TryGetData(out var rushData) && rushData.RedBoostTimer > 0f ? player.GetRedBounceSpeed() : value;
 
-    private static float GetGroundJumpGraceTime(float value, Player player)
-        => player.TryGetData(out var rushData) && player.StateMachine.State == rushData.StBlue ? BLUE_HYPER_GRACE_TIME_GROUND : value;
+    private static float GetGroundJumpGraceTime(float value, Player player) {
+        if (!player.TryGetData(out var rushData) || player.StateMachine.State != rushData.StBlue)
+            return value;
+
+        if (!rushData.JustUsedCard && rushData.BlueHyperTimePassed)
+            return BLUE_HYPER_GRACE_TIME;
+
+        return player.jumpGraceTimer;
+    }
 
     private static bool IsInTransitionableState(Player player) {
         if (!player.TryGetData(out var rushData))
@@ -863,13 +866,6 @@ public static class PlayerExtensions {
         else if (state == rushData.StWhite)
             player.StateMachine.State = Player.StHitSquash;
     }
-
-    private static bool ShouldGroundAccel(this Player player)
-        => player.TryGetData(out var rushData) && rushData.RedBoostTimer > 0f && player.onGround;
-
-    private static float GetMaxRun(float value, Player player) => player.ShouldGroundAccel() ? RED_ACCEL_SPEED : value;
-
-    private static float GetRunAccel(float value, Player player) => player.ShouldGroundAccel() ? RED_ACCEL_ACCELERATION : value;
 
     private static float GetFriction(float value, Player player)
         => player.TryGetData(out var rushData) && rushData.RedBoostTimer > 0f ? 0f : value;
@@ -1191,24 +1187,10 @@ public static class PlayerExtensions {
 
         InsertUseCard(cursor);
 
-        cursor.Index = -1;
-        cursor.GotoPrev(MoveType.After, instr => instr.MatchStloc(6));
-        cursor.MoveAfterLabels();
-
-        cursor.Emit(OpCodes.Ldloc_S, (byte) 6);
-        cursor.Emit(OpCodes.Ldarg_0);
-        cursor.EmitCall(GetMaxRun);
-        cursor.Emit(OpCodes.Stloc_S, (byte) 6);
-
         cursor.GotoNext(MoveType.After, instr => instr.MatchLdcR4(400f));
 
         cursor.Emit(OpCodes.Ldarg_0);
         cursor.EmitCall(GetFriction);
-
-        cursor.GotoNext(MoveType.After, instr => instr.MatchLdcR4(1000f));
-
-        cursor.Emit(OpCodes.Ldarg_0);
-        cursor.EmitCall(GetRunAccel);
     }
 
     private static void Player_DreamDashBegin(On.Celeste.Player.orig_DreamDashBegin dreamDashBegin, Player player) {
