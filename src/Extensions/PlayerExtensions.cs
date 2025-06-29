@@ -992,11 +992,7 @@ public static class PlayerExtensions {
         var cursor = new ILCursor(il);
         ILLabel label = null;
 
-        cursor.GotoNext(MoveType.Before,
-            instr => instr.OpCode == OpCodes.Ldarg_0,
-            instr => instr.MatchLdfld<Player>("StateMachine"),
-            instr => instr.MatchCallvirt<StateMachine>("get_State"));
-        cursor.FindNext(out _,
+        cursor.GotoNext(MoveType.After,
             instr => instr.OpCode == OpCodes.Ldc_I4_5,
             instr => instr.MatchBeq(out label));
 
