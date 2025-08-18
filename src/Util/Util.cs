@@ -112,9 +112,9 @@ public static class Util {
         return false;
     }
 
-    public static string TruncateHundredths(float time) {
-        if (time <= 0f)
-            time = 0f;
+    public static string TruncateHundredths(double time) {
+        if (time <= 0d)
+            time = 0d;
 
         string s = time.ToString("0.000", CultureInfo.InvariantCulture);
         int index = s.IndexOf('.');

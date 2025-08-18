@@ -25,8 +25,8 @@ public class RushGoal : Entity {
     private bool activated;
     private bool failed;
     private bool demonKilledThisFrame;
-    private float timeElapsed;
-    private float nextBeepAt;
+    private double timeElapsed;
+    private double nextBeepAt;
     private int beepsRemaining;
 
     public RushGoal(EntityData data, Vector2 offset) : base(data.Position + offset) {
@@ -103,7 +103,7 @@ public class RushGoal : Entity {
         else if (startThisFrame)
             timerStarted = true;
 
-        bool timedOut = timerStarted && timeElapsed - TimeLimit >= 0.001f;
+        bool timedOut = timerStarted && timeElapsed - TimeLimit >= 0.001d;
 
         if (timedOut)
             Fail();
@@ -128,7 +128,7 @@ public class RushGoal : Entity {
         if (!failed && beepsRemaining > 0 && timeElapsed >= nextBeepAt) {
             Util.PlaySound("event:/classic/sfx2", 2f);
             beepsRemaining--;
-            nextBeepAt += 0.5f;
+            nextBeepAt += 0.5d;
         }
 
         var player = CollideFirst<Player>();
@@ -160,8 +160,8 @@ public class RushGoal : Entity {
         if (failed)
             return;
 
-        timeElapsed = 0f;
-        nextBeepAt = TimeLimit - 1.5f;
+        timeElapsed = 0d;
+        nextBeepAt = TimeLimit - 1.5d;
         beepsRemaining = 3;
         startThisFrame = true;
     }
@@ -247,11 +247,11 @@ public class RushGoal : Entity {
             for (int i = 0; i < pastPoints.Count; i++)
                 relativePastPoints[i] = pastPoints[i] - player.Position;
 
+            player.ResetStateValues();
             level.TeleportTo(player, nextLevel, Player.IntroTypes.Transition);
             level.Session.FirstLevel = false;
             level.Camera.Position = level.GetFullCameraTargetAt(player, player.Position);
 
-            player.ResetStateValues();
             player.Facing = player.CollideFirst<SpawnFacingTrigger>()?.Facing ?? Facings.Right;
 
             foreach (var point in relativePastPoints)

@@ -161,7 +161,9 @@ public class Demon : Entity {
 
     private void UpdateVisual() {
         body.Y = outline.Y = sine.Value;
-        feet.Visible = alive && (CollideCheck<Solid>(Position + Vector2.UnitY) || CollideCheckOutside<JumpThru>(Position + Vector2.UnitY));
+
+        if (feet.Visible && (!alive || !CollideCheckOutside<Solid>(Position + Vector2.UnitY) && !CollideCheckOutside<JumpThru>(Position + Vector2.UnitY)))
+            feet.Visible = false;
 
         var player = Scene?.Tracker.GetEntity<Player>();
         var eyesOffset = new Vector2(0f, sine.Value - 1f);
