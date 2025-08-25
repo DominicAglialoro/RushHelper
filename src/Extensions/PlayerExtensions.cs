@@ -122,6 +122,7 @@ public static class PlayerExtensions {
         player.Sprite.Scale = Vector2.One;
         player.AutoJump = false;
         player.AutoJumpTimer = 0f;
+        player.dashCooldownTimer = 0f;
         player.dashAttackTimer = 0f;
         player.dashTrailTimer = 0f;
         player.dashTrailCounter = 0;
@@ -134,6 +135,8 @@ public static class PlayerExtensions {
         player.varJumpTimer = 0f;
         player.wallBoostDir = 0;
         player.wallBoostTimer = 0f;
+        player.ZeroRemainderX();
+        player.ZeroRemainderY();
 
         if (!player.TryGetData(out var rushData))
             return;

@@ -1,5 +1,5 @@
 - Name: RushHelper
-  Version: 1.1.0
+  Version: 1.1.1
   DLL: src/bin/net8.0/RushHelper.dll
   Dependencies:
     - Name: Everest
