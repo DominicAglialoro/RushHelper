@@ -28,7 +28,6 @@ public static class PlayerExtensions {
     private const float RED_DASH_DURATION = 0.15f;
     private const float RED_DASH_ATTACK = 0.3f;
     private const float RED_BOOST_DURATION = 1f;
-    private const float RED_BOUNCE_ADD_SPEED = 40f;
     private const float RED_LATE_BOUNCE_TIME = 0.1f;
     private const float RED_WALL_SPEED_RETENTION_TIME = 0.1f;
     private const float WHITE_SPEED = 240f;
@@ -57,6 +56,7 @@ public static class PlayerExtensions {
         IL.Celeste.Player.BeforeDownTransition += Player_BeforeDownTransition_il;
         IL.Celeste.Player.BeforeUpTransition += Player_BeforeUpTransition_il;
         On.Celeste.Player.Jump += Player_Jump;
+        IL.Celeste.Player.Jump += Player_Jump_il;
         On.Celeste.Player.WallJump += Player_WallJump;
         On.Celeste.Player.Rebound += Player_Rebound;
         On.Celeste.Player.Die += Player_Die;
@@ -88,6 +88,7 @@ public static class PlayerExtensions {
         IL.Celeste.Player.BeforeDownTransition -= Player_BeforeDownTransition_il;
         IL.Celeste.Player.BeforeUpTransition -= Player_BeforeUpTransition_il;
         On.Celeste.Player.Jump -= Player_Jump;
+        IL.Celeste.Player.Jump -= Player_Jump_il;
         On.Celeste.Player.WallJump -= Player_WallJump;
         On.Celeste.Player.Rebound -= Player_Rebound;
         On.Celeste.Player.Die -= Player_Die;
@@ -821,8 +822,11 @@ public static class PlayerExtensions {
         if (player.wallSpeedRetentionTimer > 0f)
             beforeSpeedX = Math.Max(beforeSpeedX, Math.Abs(player.wallSpeedRetained));
 
-        return Math.Max(130f, beforeSpeedX + RED_BOUNCE_ADD_SPEED);
+        return Math.Max(130f, beforeSpeedX);
     }
+
+    private static float GetJumpSpeed(float value, Player player)
+        => player.TryGetData(out var rushData) && rushData.RedBoostTimer > 0f && player.moveX == -Math.Sign(player.Speed.X) ? player.moveX * Math.Max(40f, Math.Abs(player.Speed.X)) : value;
 
     private static float GetWallBoostSpeed(float value, Player player)
         => player.TryGetData(out var rushData) && rushData.RedBoostTimer > 0f ? player.GetRedBounceSpeed() : value;
@@ -877,18 +881,18 @@ public static class PlayerExtensions {
 
     private static void InsertUseCard(ILCursor cursor) {
         cursor.GotoNext(MoveType.AfterLabel,
-            instr => instr.OpCode == OpCodes.Ldarg_0,
+            instr => instr.MatchLdarg0(),
             instr => instr.MatchCallvirt<Player>("get_CanDash"));
 
-        cursor.Emit(OpCodes.Ldarg_0);
+        cursor.EmitLdarg0();
         cursor.EmitCall(CheckUseCard);
 
         var label = cursor.DefineLabel();
 
-        cursor.Emit(OpCodes.Brfalse_S, label);
-        cursor.Emit(OpCodes.Ldarg_0);
+        cursor.EmitBrfalse(label);
+        cursor.EmitLdarg0();
         cursor.EmitCall(UseCard);
-        cursor.Emit(OpCodes.Ret);
+        cursor.EmitRet();
         cursor.MarkLabel(label);
     }
 
@@ -906,12 +910,12 @@ public static class PlayerExtensions {
 
         cursor.GotoNext(MoveType.After, instr => instr.MatchLdcR4(130f));
 
-        cursor.Emit(OpCodes.Ldarg_0);
+        cursor.EmitLdarg0();
         cursor.EmitCall(GetWallBoostSpeed);
 
-        cursor.GotoNext(instr => instr.MatchStfld<Player>("jumpGraceTimer"));
+        cursor.GotoNext(instr => instr.MatchStfld<Player>(nameof(Player.jumpGraceTimer)));
 
-        cursor.Emit(OpCodes.Ldarg_0);
+        cursor.EmitLdarg0();
         cursor.EmitCall(GetGroundJumpGraceTime);
     }
 
@@ -996,12 +1000,12 @@ public static class PlayerExtensions {
         ILLabel label = null;
 
         cursor.GotoNext(MoveType.After,
-            instr => instr.OpCode == OpCodes.Ldc_I4_5,
+            instr => instr.MatchLdcI4(Player.StRedDash),
             instr => instr.MatchBeq(out label));
 
-        cursor.Emit(OpCodes.Ldarg_0);
+        cursor.EmitLdarg0();
         cursor.EmitCall(IsInTransitionableState);
-        cursor.Emit(OpCodes.Brtrue_S, label);
+        cursor.EmitBrtrue(label);
     }
 
     private static void Player_BeforeUpTransition_il(ILContext il) {
@@ -1009,17 +1013,17 @@ public static class PlayerExtensions {
         ILLabel label = null;
 
         while (cursor.TryGotoNext(MoveType.Before,
-                   instr => instr.OpCode == OpCodes.Ldarg_0,
-                   instr => instr.MatchLdfld<Player>("StateMachine"),
+                   instr => instr.MatchLdarg0(),
+                   instr => instr.MatchLdfld<Player>(nameof(Player.StateMachine)),
                    instr => instr.MatchCallvirt<StateMachine>("get_State"),
-                   instr => instr.OpCode == OpCodes.Ldc_I4_5)) {
+                   instr => instr.MatchLdcI4(Player.StRedDash))) {
             cursor.FindNext(out _, instr => instr.MatchBeq(out label));
 
-            cursor.Emit(OpCodes.Ldarg_0);
+            cursor.EmitLdarg0();
             cursor.EmitCall(IsInTransitionableState);
-            cursor.Emit(OpCodes.Brtrue_S, label);
+            cursor.EmitBrtrue(label);
 
-            cursor.GotoNext(instr => instr.OpCode == OpCodes.Ldc_I4_5);
+            cursor.GotoNext(instr => instr.MatchLdcI4(Player.StRedDash));
         }
     }
 
@@ -1039,6 +1043,22 @@ public static class PlayerExtensions {
             player.Speed.X += rushData.WhiteJumpSpeedReturn;
 
         rushData.WhiteJumpSpeedReturn = 0f;
+    }
+
+    private static void Player_Jump_il(ILContext il) {
+        var cursor = new ILCursor(il);
+
+        cursor.GotoNext(MoveType.After,
+            instr => instr.MatchLdindR4(),
+            instr => instr.MatchLdcR4(40f),
+            instr => instr.MatchLdarg0(),
+            instr => instr.MatchLdfld<Player>(nameof(Player.moveX)),
+            instr => instr.MatchConvR4(),
+            instr => instr.MatchMul(),
+            instr => instr.MatchAdd());
+
+        cursor.EmitLdarg0();
+        cursor.EmitCall(GetJumpSpeed);
     }
 
     private static void Player_WallJump(On.Celeste.Player.orig_WallJump wallJump, Player player, int dir) {
@@ -1083,38 +1103,38 @@ public static class PlayerExtensions {
         var cursor = new ILCursor(il);
 
         cursor.GotoNext(MoveType.AfterLabel,
-            instr => instr.OpCode == OpCodes.Ldarg_0,
+            instr => instr.MatchLdarg0(),
             instr => instr.MatchCallvirt<Player>("get_DashAttacking"));
 
         var label = cursor.DefineLabel();
 
-        cursor.Emit(OpCodes.Ldarg_0);
-        cursor.Emit(OpCodes.Ldarg_1);
+        cursor.EmitLdarg0();
+        cursor.EmitLdarg1();
         cursor.EmitCall(ShouldHitPlatform);
-        cursor.Emit(OpCodes.Brtrue_S, label);
+        cursor.EmitBrtrue(label);
 
-        cursor.GotoNext(MoveType.After, instr => instr.OpCode == OpCodes.Bne_Un);
+        cursor.GotoNext(MoveType.After, instr => instr.MatchBneUn(out _));
 
         cursor.MarkLabel(label);
 
         cursor.GotoNext(MoveType.After,
             instr => instr.MatchCallvirt<StateMachine>("get_State"),
-            instr => instr.OpCode == OpCodes.Ldc_I4_2,
+            instr => instr.MatchLdcI4(Player.StDash),
             instr => instr.MatchBeq(out label));
 
-        cursor.Emit(OpCodes.Ldarg_0);
+        cursor.EmitLdarg0();
         cursor.EmitCall(IsInCustomDash);
-        cursor.Emit(OpCodes.Brtrue_S, label);
+        cursor.EmitBrtrue(label);
 
-        cursor.GotoNext(MoveType.Before, instr => instr.MatchStfld<Player>("wallSpeedRetentionTimer"));
+        cursor.GotoNext(MoveType.Before, instr => instr.MatchStfld<Player>(nameof(Player.wallSpeedRetentionTimer)));
 
-        cursor.Emit(OpCodes.Ldarg_0);
+        cursor.EmitLdarg0();
         cursor.EmitCall(GetWallSpeedRetentionTime);
 
         cursor.Index = -1;
         cursor.MoveAfterLabels();
 
-        cursor.Emit(OpCodes.Ldarg_0);
+        cursor.EmitLdarg0();
         cursor.EmitCall(OnTrueCollideH);
     }
 
@@ -1122,33 +1142,33 @@ public static class PlayerExtensions {
         var cursor = new ILCursor(il);
 
         cursor.GotoNext(MoveType.AfterLabel,
-            instr => instr.OpCode == OpCodes.Ldarg_0,
+            instr => instr.MatchLdarg0(),
             instr => instr.MatchCallvirt<Player>("get_DashAttacking"));
 
         var label = cursor.DefineLabel();
 
-        cursor.Emit(OpCodes.Ldarg_0);
-        cursor.Emit(OpCodes.Ldarg_1);
+        cursor.EmitLdarg0();
+        cursor.EmitLdarg1();
         cursor.EmitCall(ShouldHitPlatform);
-        cursor.Emit(OpCodes.Brtrue_S, label);
+        cursor.EmitBrtrue(label);
 
-        cursor.GotoNext(MoveType.After, instr => instr.OpCode == OpCodes.Bne_Un_S);
+        cursor.GotoNext(MoveType.After, instr => instr.MatchBneUn(out _));
 
         cursor.MarkLabel(label);
 
         cursor.GotoNext(MoveType.After,
             instr => instr.MatchCallvirt<StateMachine>("get_State"),
-            instr => instr.OpCode == OpCodes.Ldc_I4_2,
+            instr => instr.MatchLdcI4(Player.StDash),
             instr => instr.MatchBeq(out label));
 
-        cursor.Emit(OpCodes.Ldarg_0);
+        cursor.EmitLdarg0();
         cursor.EmitCall(IsInCustomDash);
-        cursor.Emit(OpCodes.Brtrue_S, label);
+        cursor.EmitBrtrue(label);
 
         cursor.Index = -1;
         cursor.MoveAfterLabels();
 
-        cursor.Emit(OpCodes.Ldarg_0);
+        cursor.EmitLdarg0();
         cursor.EmitCall(OnTrueCollideV);
     }
 
@@ -1188,7 +1208,7 @@ public static class PlayerExtensions {
 
         cursor.GotoNext(MoveType.After, instr => instr.MatchLdcR4(400f));
 
-        cursor.Emit(OpCodes.Ldarg_0);
+        cursor.EmitLdarg0();
         cursor.EmitCall(GetFriction);
     }
 

@@ -7,7 +7,7 @@ namespace Celeste.Mod.RushHelper;
 
 [CustomEntity("rushHelper/rushGoal"), Tracked]
 public class RushGoal : Entity {
-    public readonly float TimeLimit;
+    public readonly int TimeLimit;
 
     public bool Warping;
 
@@ -19,6 +19,7 @@ public class RushGoal : Entity {
     private readonly SineWave sine;
     private readonly BloomPoint bloom;
     private readonly TimeDisplay timeDisplay;
+    private readonly TimeRateModifier timeRateModifier;
 
     private bool startThisFrame;
     private bool timerStarted;
@@ -26,8 +27,7 @@ public class RushGoal : Entity {
     private bool failed;
     private bool demonKilledThisFrame;
     private double timeElapsed;
-    private double nextBeepAt;
-    private int beepsRemaining;
+    private int nextBeepAt;
 
     public RushGoal(EntityData data, Vector2 offset) : base(data.Position + offset) {
         Collider = new Hitbox(16f, 24f, -8f, -24f);
@@ -65,9 +65,10 @@ public class RushGoal : Entity {
         Tag = Tags.FrozenUpdate;
         UpdateCrystalY();
 
-        TimeLimit = data.Float("timeLimit");
+        TimeLimit = (int) Math.Round(100d * data.Float("timeLimit"));
 
         timeDisplay = new TimeDisplay(Color.Red);
+        Add(timeRateModifier = new TimeRateModifier(0.1f, false));
     }
 
     public override void Added(Scene scene) {
@@ -103,7 +104,8 @@ public class RushGoal : Entity {
         else if (startThisFrame)
             timerStarted = true;
 
-        bool timedOut = timerStarted && timeElapsed - TimeLimit >= 0.001d;
+        int timeElapsedHundredths = (int) Math.Round(1000d * timeElapsed) / 10;
+        bool timedOut = timerStarted && timeElapsedHundredths > TimeLimit;
 
         if (timedOut)
             Fail();
@@ -125,10 +127,9 @@ public class RushGoal : Entity {
             }
         }
 
-        if (!failed && beepsRemaining > 0 && timeElapsed >= nextBeepAt) {
+        if (timerStarted && !failed && timeElapsedHundredths < TimeLimit && timeElapsedHundredths >= nextBeepAt) {
             Util.PlaySound("event:/classic/sfx2", 2f);
-            beepsRemaining--;
-            nextBeepAt += 0.5d;
+            nextBeepAt += 50;
         }
 
         var player = CollideFirst<Player>();
@@ -142,13 +143,13 @@ public class RushGoal : Entity {
             if (!timerStarted)
                 return;
 
-            Logger.Info("RushHelper", $"Level cleared in {Util.TruncateHundredths(timeElapsed)}");
+            Logger.Info("RushHelper", $"Level cleared in {Util.HundredthsToString(timeElapsedHundredths)}");
 
             if (RushHelperModule.Settings.ShowTimeRemainingOnClear)
-                Scene.Add(new LevelClearedTimeRemainingDisplay($"-{Util.TruncateHundredths(TimeLimit - timeElapsed)}"));
+                Scene.Add(new LevelClearedTimeRemainingDisplay($"-{Util.HundredthsToString(TimeLimit - timeElapsedHundredths)}"));
         }
         else if (timedOut && !timeDisplay.Visible && Demon.CountLivingDemons(Scene) == 0)
-            timeDisplay.Show($"+{Util.TruncateHundredths(timeElapsed - TimeLimit)}");
+            timeDisplay.Show($"+{Util.HundredthsToString(timeElapsedHundredths - TimeLimit)}");
     }
 
     public override void Awake(Scene scene) {
@@ -161,8 +162,7 @@ public class RushGoal : Entity {
             return;
 
         timeElapsed = 0d;
-        nextBeepAt = TimeLimit - 1.5d;
-        beepsRemaining = 3;
+        nextBeepAt = TimeLimit - 150;
         startThisFrame = true;
     }
 
@@ -195,7 +195,7 @@ public class RushGoal : Entity {
         Warping = true;
         Audio.Play(SFX.game_10_glitch_short);
         player.Speed = player.Speed.SafeNormalize() * Math.Min(player.Speed.Length(), 240f);
-        Engine.TimeRate = 0.1f;
+        timeRateModifier.Enabled = true;
 
         var tween = Tween.Create(Tween.TweenMode.Oneshot, null, 0.3f, true);
 
@@ -203,7 +203,7 @@ public class RushGoal : Entity {
         tween.OnUpdate = tween => Glitch.Value = 0.5f * tween.Percent;
         tween.OnComplete = _ => {
             Glitch.Value = 0.5f;
-            Engine.TimeRate = 1f;
+            timeRateModifier.Enabled = false;
 
             if (!player.Dead)
                 WarpToNextLevel(player);
@@ -252,7 +252,10 @@ public class RushGoal : Entity {
             level.Session.FirstLevel = false;
             level.Camera.Position = level.GetFullCameraTargetAt(player, player.Position);
 
-            player.Facing = player.CollideFirst<SpawnFacingTrigger>()?.Facing ?? Facings.Right;
+            var spawnFacingTrigger = player.CollideFirst<SpawnFacingTrigger>();
+
+            if (spawnFacingTrigger != null)
+                player.Facing = spawnFacingTrigger.Facing;
 
             foreach (var point in relativePastPoints)
                 player.Leader.PastPoints.Add(point + player.Position);
