@@ -1,8 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Celeste.Mod.Entities;
+using Celeste.Mod.ProgHelper;
 using Microsoft.Xna.Framework;
-using Mono.Cecil.Cil;
 using Monocle;
 using MonoMod.Cil;
 using MonoMod.RuntimeDetour;
@@ -28,8 +29,8 @@ public static class PlayerExtensions {
     private const float RED_DASH_DURATION = 0.15f;
     private const float RED_DASH_ATTACK = 0.3f;
     private const float RED_BOOST_DURATION = 1f;
-    private const float RED_LATE_BOUNCE_TIME = 0.1f;
-    private const float RED_WALL_SPEED_RETENTION_TIME = 0.1f;
+    private const float RED_BOUNCE_ADD_SPEED = 40f;
+    private const float RED_LATE_BOUNCE_TIME = 0.017f;
     private const float WHITE_SPEED = 240f;
     private const float WHITE_ACCELERATE_MULT = 1.2f;
     private const float WHITE_JUMP_GRACE_TIME = 0.1f;
@@ -56,7 +57,6 @@ public static class PlayerExtensions {
         IL.Celeste.Player.BeforeDownTransition += Player_BeforeDownTransition_il;
         IL.Celeste.Player.BeforeUpTransition += Player_BeforeUpTransition_il;
         On.Celeste.Player.Jump += Player_Jump;
-        IL.Celeste.Player.Jump += Player_Jump_il;
         On.Celeste.Player.WallJump += Player_WallJump;
         On.Celeste.Player.Rebound += Player_Rebound;
         On.Celeste.Player.Die += Player_Die;
@@ -88,7 +88,6 @@ public static class PlayerExtensions {
         IL.Celeste.Player.BeforeDownTransition -= Player_BeforeDownTransition_il;
         IL.Celeste.Player.BeforeUpTransition -= Player_BeforeUpTransition_il;
         On.Celeste.Player.Jump -= Player_Jump;
-        IL.Celeste.Player.Jump -= Player_Jump_il;
         On.Celeste.Player.WallJump -= Player_WallJump;
         On.Celeste.Player.Rebound -= Player_Rebound;
         On.Celeste.Player.Die -= Player_Die;
@@ -220,6 +219,59 @@ public static class PlayerExtensions {
         }
 
         return true;
+    }
+
+    public static void WarpToLevel(this Player player, string nextLevel) {
+        var timeRateModifier = new TimeRateModifier(0.1f);
+        var tween = Tween.Create(Tween.TweenMode.Oneshot, null, 0.3f, true);
+
+        Audio.Play(SFX.game_10_glitch_short);
+        player.Speed = player.Speed.SafeNormalize() * Math.Min(player.Speed.Length(), 240f);
+        player.Add(timeRateModifier);
+        player.Add(tween);
+        player.GetOrCreateData().Warping = true;
+
+        tween.UseRawDeltaTime = true;
+        tween.OnUpdate = tween => Glitch.Value = 0.5f * tween.Percent;
+        tween.OnComplete = tween => player.level.OnEndOfFrame += () => {
+            Glitch.Value = 0.5f;
+
+            if (player.Dead)
+                return;
+
+            var pastPoints = player.Leader.PastPoints;
+            var relativePastPoints = new Vector2[pastPoints.Count];
+
+            for (int i = 0; i < pastPoints.Count; i++)
+                relativePastPoints[i] = pastPoints[i] - player.Position;
+
+            tween.RemoveSelf();
+            timeRateModifier.RemoveSelf();
+            player.GetData().Warping = false;
+            player.ResetStateValues();
+
+            var level = player.level;
+
+            level.TeleportTo(player, nextLevel, Player.IntroTypes.Transition);
+            level.Session.FirstLevel = false;
+            level.Camera.Position = level.GetFullCameraTargetAt(player, player.Position);
+
+            var spawnFacingTrigger = player.CollideFirst<SpawnFacingTrigger>();
+
+            if (spawnFacingTrigger != null)
+                player.Facing = spawnFacingTrigger.Facing;
+
+            foreach (var point in relativePastPoints)
+                player.Leader.PastPoints.Add(point + player.Position);
+
+            foreach (var follower in player.Leader.Followers)
+                follower.DelayTimer = 0f;
+
+            var endTween = Tween.Create(Tween.TweenMode.Oneshot, null, 0.1f, true);
+
+            endTween.OnUpdate = tween => Glitch.Value = 0.5f * (1f - tween.Eased);
+            player.Add(endTween);
+        };
     }
 
     public static bool IsInCustomDash(this Player player) {
@@ -519,6 +571,8 @@ public static class PlayerExtensions {
 
         if (!player.onGround && player.Ducking && player.CanUnDuck)
             player.Ducking = false;
+        else if (player.onGround && Input.MoveY == 1)
+            player.Ducking = true;
 
         player.Sprite.Play("dash");
         player.Play("event:/rushHelper/game/blue_dash");
@@ -672,7 +726,7 @@ public static class PlayerExtensions {
         if (player.TryGrabHoldable())
             return Player.StPickup;
 
-        if (player.TryJump() || player.TrySuperWallJump() || player.TryWallJump())
+        if (player.TryJump() || player.TrySuperWallJump() || !(RushHelperModule.Instance.ProgHelperLoaded && WavedashProtectionCheck(player)) && player.TryWallJump())
             return Player.StNormal;
 
         if (player.DashDir.Y == 0f)
@@ -708,6 +762,7 @@ public static class PlayerExtensions {
             player.Speed.Y = 0f;
         }
 
+        rushData.RedDashSpeed = player.Speed.X;
         SlashFx.Burst(player.Center, player.DashDir.Angle());
 
         yield return RED_DASH_DURATION;
@@ -816,17 +871,23 @@ public static class PlayerExtensions {
         player.Play(SFX.game_05_redbooster_end);
     }
 
+    private static bool WavedashProtectionCheck(Player player)
+        => player.DashDir.X != 0f && player.DashDir.Y > 0f && player.CollideCheck<WavedashProtectionTrigger>();
+
     private static float GetRedBounceSpeed(this Player player) {
-        float beforeSpeedX = Math.Abs(player.Speed.X);
+        var rushData = player.GetData();
+        float bounceSpeed;
+
+        if (player.StateMachine.State == rushData.StRed)
+            bounceSpeed = Math.Abs(rushData.RedDashSpeed);
+        else
+            bounceSpeed = Math.Abs(player.Speed.X);
 
         if (player.wallSpeedRetentionTimer > 0f)
-            beforeSpeedX = Math.Max(beforeSpeedX, Math.Abs(player.wallSpeedRetained));
+            bounceSpeed = Math.Max(bounceSpeed, Math.Abs(player.wallSpeedRetained));
 
-        return Math.Max(130f, beforeSpeedX);
+        return Math.Max(130f, bounceSpeed + RED_BOUNCE_ADD_SPEED);
     }
-
-    private static float GetJumpSpeed(float value, Player player)
-        => player.TryGetData(out var rushData) && rushData.RedBoostTimer > 0f && player.moveX == -Math.Sign(player.Speed.X) ? player.moveX * Math.Max(40f, Math.Abs(player.Speed.X)) : value;
 
     private static float GetWallBoostSpeed(float value, Player player)
         => player.TryGetData(out var rushData) && rushData.RedBoostTimer > 0f ? player.GetRedBounceSpeed() : value;
@@ -854,9 +915,6 @@ public static class PlayerExtensions {
         => player.TryGetData(out var rushData) && rushData.RedBoostTimer > 0f && data.Hit?.OnDashCollide != null
            && (data.Direction.X == Math.Sign(player.Speed.X) || data.Direction.Y == Math.Sign(player.Speed.Y));
 
-    private static float GetWallSpeedRetentionTime(float value, Player player)
-        => player.TryGetData(out var rushData) && rushData.RedBoostTimer > 0f ? RED_WALL_SPEED_RETENTION_TIME : value;
-
     private static void OnTrueCollideH(Player player) {
         if (player.TryGetData(out var rushData) && player.StateMachine.State == rushData.StWhite)
             player.StateMachine.State = Player.StHitSquash;
@@ -872,6 +930,11 @@ public static class PlayerExtensions {
             player.DoGreenSlam();
         else if (state == rushData.StWhite)
             player.StateMachine.State = Player.StHitSquash;
+    }
+
+    private static void OnUltraSpeedMult(Player player) {
+        if (player.TryGetData(out var rushData) && player.StateMachine.State == rushData.StRed)
+            rushData.RedDashSpeed *= 1.2f;
     }
 
     private static float GetFriction(float value, Player player)
@@ -908,7 +971,7 @@ public static class PlayerExtensions {
     private static void Player_orig_Update_il(ILContext il) {
         var cursor = new ILCursor(il);
 
-        cursor.GotoNext(MoveType.After, instr => instr.MatchLdcR4(130f));
+        cursor.GotoNext(MoveType.After, instr => instr.MatchLdcR4(Player.WallJumpHSpeed));
 
         cursor.EmitLdarg0();
         cursor.EmitCall(GetWallBoostSpeed);
@@ -999,9 +1062,8 @@ public static class PlayerExtensions {
         var cursor = new ILCursor(il);
         ILLabel label = null;
 
-        cursor.GotoNext(MoveType.After,
-            instr => instr.MatchLdcI4(Player.StRedDash),
-            instr => instr.MatchBeq(out label));
+        cursor.GotoNext(instr => instr.MatchLdcI4(Player.StRedDash));
+        cursor.GotoNext(MoveType.After, instr => instr.MatchBeq(out label));
 
         cursor.EmitLdarg0();
         cursor.EmitCall(IsInTransitionableState);
@@ -1034,6 +1096,34 @@ public static class PlayerExtensions {
             return;
         }
 
+        if (player.StateMachine.State == rushData.StRed) {
+            player.Speed.X = rushData.RedDashSpeed;
+
+            if (player.onGround && player.DashDir.X != 0f && player.DashDir.Y > 0f) {
+                player.DashDir.X = Math.Sign(player.DashDir.X);
+                player.DashDir.Y = 0f;
+                player.Speed.X *= 1.2f;
+            }
+        }
+
+        if (rushData.RedBoostTimer > 0f) {
+            float bounceSpeed = Math.Abs(player.Speed.X);
+            int bounceDir = -Math.Sign(player.Speed.X);
+
+            if (player.wallSpeedRetentionTimer > 0f && Math.Abs(player.wallSpeedRetained) > bounceSpeed) {
+                bounceSpeed = Math.Abs(player.wallSpeedRetained);
+                bounceDir = -Math.Sign(player.wallSpeedRetained);
+            }
+
+            if (Math.Sign(player.moveX) == bounceDir)
+                player.Speed.X = bounceDir * bounceSpeed;
+            else if (bounceDir != 0) {
+                rushData.RedLateBounceTimer = RED_LATE_BOUNCE_TIME;
+                rushData.RedLateBounceDir = bounceDir;
+                rushData.RedLateBounceSpeed = (bounceSpeed + 40f) * bounceDir + player.LiftBoost.X;
+            }
+        }
+
         jump(player, particles, playsfx);
 
         if (!player.dreamJump)
@@ -1043,22 +1133,6 @@ public static class PlayerExtensions {
             player.Speed.X += rushData.WhiteJumpSpeedReturn;
 
         rushData.WhiteJumpSpeedReturn = 0f;
-    }
-
-    private static void Player_Jump_il(ILContext il) {
-        var cursor = new ILCursor(il);
-
-        cursor.GotoNext(MoveType.After,
-            instr => instr.MatchLdindR4(),
-            instr => instr.MatchLdcR4(40f),
-            instr => instr.MatchLdarg0(),
-            instr => instr.MatchLdfld<Player>(nameof(Player.moveX)),
-            instr => instr.MatchConvR4(),
-            instr => instr.MatchMul(),
-            instr => instr.MatchAdd());
-
-        cursor.EmitLdarg0();
-        cursor.EmitCall(GetJumpSpeed);
     }
 
     private static void Player_WallJump(On.Celeste.Player.orig_WallJump wallJump, Player player, int dir) {
@@ -1073,10 +1147,11 @@ public static class PlayerExtensions {
         wallJump(player, dir);
         bounceSpeed += player.LiftBoost.X;
 
-        if (player.moveX == dir)
+        if (Input.MoveX == dir)
             player.Speed.X = bounceSpeed;
         else {
             rushData.RedLateBounceTimer = RED_LATE_BOUNCE_TIME;
+            rushData.RedLateBounceDir = dir;
             rushData.RedLateBounceSpeed = bounceSpeed;
         }
     }
@@ -1097,7 +1172,7 @@ public static class PlayerExtensions {
     }
 
     private static PlayerDeadBody Player_Die(On.Celeste.Player.orig_Die die, Player player, Vector2 direction, bool evenifinvincible, bool registerdeathinstats)
-        => !evenifinvincible && player.CollideFirst<RushGoal>()?.Warping is true ? null : die(player, direction, evenifinvincible, registerdeathinstats);
+        => !evenifinvincible && player.TryGetData(out var rushData) && rushData.Warping ? null : die(player, direction, evenifinvincible, registerdeathinstats);
 
     private static void Player_OnCollideH_il(ILContext il) {
         var cursor = new ILCursor(il);
@@ -1125,11 +1200,6 @@ public static class PlayerExtensions {
         cursor.EmitLdarg0();
         cursor.EmitCall(IsInCustomDash);
         cursor.EmitBrtrue(label);
-
-        cursor.GotoNext(MoveType.Before, instr => instr.MatchStfld<Player>(nameof(Player.wallSpeedRetentionTimer)));
-
-        cursor.EmitLdarg0();
-        cursor.EmitCall(GetWallSpeedRetentionTime);
 
         cursor.Index = -1;
         cursor.MoveAfterLabels();
@@ -1165,6 +1235,12 @@ public static class PlayerExtensions {
         cursor.EmitCall(IsInCustomDash);
         cursor.EmitBrtrue(label);
 
+        cursor.GotoNext(MoveType.After, instr => instr.MatchLdcR4(Player.DodgeSlideSpeedMult));
+        cursor.GotoNext(MoveType.After, instr => instr.MatchStindR4());
+
+        cursor.EmitLdarg0();
+        cursor.EmitCall(OnUltraSpeedMult);
+
         cursor.Index = -1;
         cursor.MoveAfterLabels();
 
@@ -1192,7 +1268,7 @@ public static class PlayerExtensions {
         if (nextState != Player.StNormal || !player.TryGetData(out var rushData))
             return nextState;
 
-        if (rushData.RedLateBounceTimer == 0f || Input.MoveX.Value != Math.Sign(rushData.RedLateBounceSpeed))
+        if (rushData.RedLateBounceTimer == 0f || player.moveX != rushData.RedLateBounceDir)
             return Player.StNormal;
 
         rushData.RedLateBounceTimer = 0f;
@@ -1239,8 +1315,11 @@ public static class PlayerExtensions {
         public float RedBoostTimer;
         public float RedLateBounceTimer;
         public float RedLateBounceSpeed;
+        public int RedLateBounceDir;
+        public float RedDashSpeed;
         public bool WhiteRedirect;
         public float WhiteJumpSpeedReturn;
+        public bool Warping;
 
         public RushData(int stYellow, int stBlue, int stGreen, int stRed, int stWhite) : base(false, false) {
             StYellow = stYellow;

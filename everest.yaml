@@ -4,3 +4,6 @@
   Dependencies:
     - Name: Everest
       Version: 1.6064.0
+  OptionalDependencies:
+    - Name: ProgHelper
+      Version: 1.0.0

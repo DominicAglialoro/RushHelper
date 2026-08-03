@@ -44,7 +44,7 @@ public class RushStartLine : Entity {
         var goal = scene.Tracker.GetEntity<RushGoal>();
 
         if (goal != null)
-            timeDisplay.Show(Util.HundredthsToString(goal.TimeLimit));
+            timeDisplay.Show(Util.HundredthsToString(goal.TimeLimitMillis / 10));
         else
             timeDisplay.Visible = false;
     }

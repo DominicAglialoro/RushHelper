@@ -1,6 +1,5 @@
 using System;
 using System.Collections;
-using System.Globalization;
 using System.Reflection;
 using FMOD.Studio;
 using Microsoft.Xna.Framework;
@@ -112,5 +111,5 @@ public static class Util {
         return false;
     }
 
-    public static string HundredthsToString(int hundredths) => hundredths > 0 ? $"{hundredths / 100}.{(hundredths % 100):00}" : "0.00";
+    public static string HundredthsToString(int hundredths) => hundredths > 0 ? $"{hundredths / 100}.{hundredths % 100:00}" : "0.00";
 }

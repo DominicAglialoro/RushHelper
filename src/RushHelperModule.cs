@@ -1,4 +1,5 @@
 ﻿using System;
+using Celeste.Mod.ProgHelper;
 
 namespace Celeste.Mod.RushHelper;
 
@@ -7,6 +8,8 @@ public class RushHelperModule : EverestModule {
 
     public override Type SettingsType => typeof(RushHelperSettings);
     public static RushHelperSettings Settings => (RushHelperSettings) Instance._Settings;
+
+    public bool ProgHelperLoaded { get; private set; }
 
     public RushHelperModule() {
         Instance = this;
@@ -19,7 +22,14 @@ public class RushHelperModule : EverestModule {
 #endif
     }
 
-    public override void Load() => PlayerExtensions.Load();
+    public override void Load() {
+        PlayerExtensions.Load();
+
+        ProgHelperLoaded = Everest.Loader.DependencyLoaded(new EverestModuleMetadata {
+            Name = "ProgHelper",
+            Version = new Version(1, 0, 0)
+        });
+    }
 
     public override void Unload() => PlayerExtensions.Unload();
 }

@@ -7,9 +7,14 @@ namespace Celeste.Mod.RushHelper;
 
 [CustomEntity("rushHelper/rushGoal"), Tracked]
 public class RushGoal : Entity {
-    public readonly int TimeLimit;
+    private enum State {
+        Inactive,
+        Active,
+        Failed,
+        Warping
+    }
 
-    public bool Warping;
+    public readonly int TimeLimitMillis;
 
     private readonly string warpTo;
     private readonly string warpToWithGolden;
@@ -23,8 +28,7 @@ public class RushGoal : Entity {
 
     private bool startThisFrame;
     private bool timerStarted;
-    private bool activated;
-    private bool failed;
+    private State state = State.Inactive;
     private bool demonKilledThisFrame;
     private double timeElapsed;
     private int nextBeepAt;
@@ -44,6 +48,7 @@ public class RushGoal : Entity {
         Add(back = new Image(GFX.Game["objects/rushHelper/rushGoal/back"]));
         back.Color = (Color.White * 0.25f) with { A = 0 };
         back.JustifyOrigin(0.5f, 1f);
+        back.Visible = false;
 
         Add(crystal = new Sprite(GFX.Game, "objects/rushHelper/rushGoal/crystal"));
         crystal.AddLoop("crystal", "", 0.5f);
@@ -55,17 +60,19 @@ public class RushGoal : Entity {
         effect.Play("effect");
         effect.Color = (Color.White * 0.5f) with { A = 0 };
         effect.JustifyOrigin(0.5f, 1f);
+        effect.Visible = false;
 
         Add(sine = new SineWave(0.3f));
         sine.Randomize();
 
         Add(new VertexLight(-12f * Vector2.UnitY, Color.Cyan, 0.5f, 16, 48));
         Add(bloom = new BloomPoint(0.2f, 16f));
+        bloom.Alpha = 0.2f;
 
         Tag = Tags.FrozenUpdate;
         UpdateCrystalY();
 
-        TimeLimit = (int) Math.Round(100d * data.Float("timeLimit"));
+        TimeLimitMillis = (int) Math.Round(1000d * data.Float("timeLimit"));
 
         timeDisplay = new TimeDisplay(Color.Red);
         Add(timeRateModifier = new TimeRateModifier(0.1f, false));
@@ -87,16 +94,13 @@ public class RushGoal : Entity {
 
     public override void Update() {
         base.Update();
+
         UpdateCrystalY();
-
-        if (Warping)
-            return;
-
         Scene.OnEndOfFrame += LateUpdate;
     }
 
     private void LateUpdate() {
-        if (Scene == null)
+        if (Scene == null || state == State.Warping)
             return;
 
         if (timerStarted)
@@ -104,32 +108,30 @@ public class RushGoal : Entity {
         else if (startThisFrame)
             timerStarted = true;
 
-        int timeElapsedHundredths = (int) Math.Round(1000d * timeElapsed) / 10;
-        bool timedOut = timerStarted && timeElapsedHundredths > TimeLimit;
+        int timeElapsedMillis = (int) Math.Round(1000d * timeElapsed);
+        bool timedOut = timerStarted && timeElapsedMillis > TimeLimitMillis;
 
-        if (timedOut)
+        if (state != State.Failed && timedOut)
             Fail();
 
-        if (demonKilledThisFrame) {
+        if (state != State.Failed && demonKilledThisFrame) {
             demonKilledThisFrame = false;
 
-            if (!timerStarted && Scene.Tracker.GetEntity<RushStartLine>() != null)
-                Fail();
-
-            if (!failed) {
-                if (Demon.CountLivingDemons(Scene) == 0)
-                    SetActivated(true);
-
-                if (activated)
+            if (timerStarted || Scene.Tracker.GetEntity<RushStartLine>() == null) {
+                if (Demon.CountLivingDemons(Scene) == 0) {
+                    Activate();
                     Util.PlaySound("event:/classic/sfx13", 2f);
+                }
                 else
                     Util.PlaySound("event:/classic/sfx8", 1.2f);
             }
+            else
+                Fail();
         }
 
-        if (timerStarted && !failed && timeElapsedHundredths < TimeLimit && timeElapsedHundredths >= nextBeepAt) {
+        if (state != State.Failed && timerStarted && nextBeepAt < TimeLimitMillis && timeElapsedMillis >= nextBeepAt) {
             Util.PlaySound("event:/classic/sfx2", 2f);
-            nextBeepAt += 50;
+            nextBeepAt += 500;
         }
 
         var player = CollideFirst<Player>();
@@ -137,32 +139,34 @@ public class RushGoal : Entity {
         if (player == null)
             return;
 
-        if (activated) {
-            BeginWarp(player);
+        if (state == State.Active) {
+            WarpPlayer(player);
 
             if (!timerStarted)
                 return;
 
-            Logger.Info("RushHelper", $"Level cleared in {Util.HundredthsToString(timeElapsedHundredths)}");
+            Logger.Info("RushHelper", $"Level cleared in {Util.HundredthsToString(timeElapsedMillis / 10)}");
 
             if (RushHelperModule.Settings.ShowTimeRemainingOnClear)
-                Scene.Add(new LevelClearedTimeRemainingDisplay($"-{Util.HundredthsToString(TimeLimit - timeElapsedHundredths)}"));
+                Scene.Add(new LevelClearedTimeRemainingDisplay($"-{Util.HundredthsToString((TimeLimitMillis - timeElapsedMillis) / 10)}"));
         }
         else if (timedOut && !timeDisplay.Visible && Demon.CountLivingDemons(Scene) == 0)
-            timeDisplay.Show($"+{Util.HundredthsToString(timeElapsedHundredths - TimeLimit)}");
+            timeDisplay.Show($"+{Util.HundredthsToString((timeElapsedMillis - TimeLimitMillis) / 10)}");
     }
 
     public override void Awake(Scene scene) {
         base.Awake(scene);
-        SetActivated(Demon.CountLivingDemons(scene) == 0);
+
+        if (Demon.CountLivingDemons(scene) == 0)
+            Activate();
     }
 
     public void StartTimer() {
-        if (failed)
+        if (state is State.Failed or State.Warping)
             return;
 
         timeElapsed = 0d;
-        nextBeepAt = TimeLimit - 150;
+        nextBeepAt = TimeLimitMillis - 500 * Math.Min(TimeLimitMillis / 500, 3);
         startThisFrame = true;
     }
 
@@ -170,103 +174,50 @@ public class RushGoal : Entity {
 
     private void UpdateCrystalY() => crystal.Y = bloom.Y = -12f + sine.Value;
 
-    private void SetActivated(bool activated) {
-        this.activated = activated;
-        back.Visible = activated;
-        effect.Visible = activated;
-        bloom.Alpha = activated ? 0.5f : 0.2f;
+    private void Activate() {
+        state = State.Active;
+        back.Visible = true;
+        effect.Visible = true;
+        bloom.Alpha = 0.5f;
     }
 
     private void Fail() {
-        if (failed)
-            return;
-
-        if (!timerStarted)
-            Collidable = false;
-
-        failed = true;
-        SetActivated(false);
+        state = State.Failed;
+        back.Visible = false;
+        effect.Visible = false;
+        bloom.Alpha = 0.2f;
         Scene.Tracker.GetEntity<RushStartLine>()?.Deactivate();
         Util.PlaySound("event:/classic/sfx14", 2f);
         crystal.Color = Color.Red;
     }
 
-    private void BeginWarp(Player player) {
-        Warping = true;
-        Audio.Play(SFX.game_10_glitch_short);
-        player.Speed = player.Speed.SafeNormalize() * Math.Min(player.Speed.Length(), 240f);
-        timeRateModifier.Enabled = true;
+    private void WarpPlayer(Player player) {
+        state = State.Warping;
 
-        var tween = Tween.Create(Tween.TweenMode.Oneshot, null, 0.3f, true);
+        Strawberry golden = null;
 
-        tween.UseRawDeltaTime = true;
-        tween.OnUpdate = tween => Glitch.Value = 0.5f * tween.Percent;
-        tween.OnComplete = _ => {
-            Glitch.Value = 0.5f;
-            timeRateModifier.Enabled = false;
+        foreach (var follower in player.Leader.Followers) {
+            if (follower.Entity is not Strawberry strawberry || !strawberry.Golden || strawberry.Winged)
+                continue;
 
-            if (!player.Dead)
-                WarpToNextLevel(player);
-        };
+            golden = strawberry;
 
-        Add(tween);
-    }
+            break;
+        }
 
-    private void WarpToNextLevel(Player player) {
+        string nextLevel;
         var level = SceneAs<Level>();
 
-        level.OnEndOfFrame += () => {
-            player.CleanUpTriggers();
+        if (golden != null && !string.IsNullOrWhiteSpace(warpToWithGolden))
+            nextLevel = warpToWithGolden;
+        else if (!string.IsNullOrWhiteSpace(warpTo))
+            nextLevel = warpTo;
+        else
+            nextLevel = level.GetNextLevel();
 
-            Strawberry golden = null;
+        if (!level.HasLevel(nextLevel))
+            nextLevel = level.Session.Level;
 
-            foreach (var follower in player.Leader.Followers) {
-                if (follower.Entity is not Strawberry strawberry || !strawberry.Golden || strawberry.Winged)
-                    continue;
-
-                golden = strawberry;
-
-                break;
-            }
-
-            string nextLevel;
-
-            if (golden != null && !string.IsNullOrWhiteSpace(warpToWithGolden))
-                nextLevel = warpToWithGolden;
-            else if (!string.IsNullOrWhiteSpace(warpTo))
-                nextLevel = warpTo;
-            else
-                nextLevel = level.GetNextLevel();
-
-            if (!level.HasLevel(nextLevel))
-                nextLevel = level.Session.Level;
-
-            var pastPoints = player.Leader.PastPoints;
-            var relativePastPoints = new Vector2[pastPoints.Count];
-
-            for (int i = 0; i < pastPoints.Count; i++)
-                relativePastPoints[i] = pastPoints[i] - player.Position;
-
-            player.ResetStateValues();
-            level.TeleportTo(player, nextLevel, Player.IntroTypes.Transition);
-            level.Session.FirstLevel = false;
-            level.Camera.Position = level.GetFullCameraTargetAt(player, player.Position);
-
-            var spawnFacingTrigger = player.CollideFirst<SpawnFacingTrigger>();
-
-            if (spawnFacingTrigger != null)
-                player.Facing = spawnFacingTrigger.Facing;
-
-            foreach (var point in relativePastPoints)
-                player.Leader.PastPoints.Add(point + player.Position);
-
-            foreach (var follower in player.Leader.Followers)
-                follower.DelayTimer = 0f;
-
-            var tween = Tween.Create(Tween.TweenMode.Oneshot, null, 0.1f, true);
-
-            tween.OnUpdate = tween => Glitch.Value = 0.5f * (1f - tween.Eased);
-            player.Add(tween);
-        };
+        player.WarpToLevel(nextLevel);
     }
 }
