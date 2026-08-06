@@ -902,6 +902,15 @@ public static class PlayerExtensions {
         return player.jumpGraceTimer;
     }
 
+    private static bool ShouldResetWallSpeedRetention(Player player) {
+        if (!player.TryGetData(out var rushData) || rushData.RedBoostTimer == 0f)
+            return true;
+
+        player.wallSpeedRetentionTimer -= Engine.DeltaTime;
+
+        return false;
+    }
+
     private static bool IsInTransitionableState(Player player) {
         if (!player.TryGetData(out var rushData))
             return false;
@@ -980,6 +989,18 @@ public static class PlayerExtensions {
 
         cursor.EmitLdarg0();
         cursor.EmitCall(GetGroundJumpGraceTime);
+
+        ILLabel label = null;
+
+        cursor.GotoNext(MoveType.AfterLabel,
+            instr => instr.MatchLdarg0(),
+            instr => instr.MatchLdcR4(0f),
+            instr => instr.MatchStfld<Player>(nameof(Player.wallSpeedRetentionTimer)),
+            instr => instr.MatchBr(out label));
+
+        cursor.EmitLdarg0();
+        cursor.EmitCall(ShouldResetWallSpeedRetention);
+        cursor.EmitBrfalse(label);
     }
 
     private static void Player_Update(On.Celeste.Player.orig_Update update, Player player) {
