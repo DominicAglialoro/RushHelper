@@ -64,6 +64,7 @@ public static class PlayerExtensions {
         IL.Celeste.Player.OnCollideV += Player_OnCollideV_il;
         On.Celeste.Player.OnBoundsH += Player_OnBoundsH;
         On.Celeste.Player.OnBoundsV += Player_OnBoundsV;
+        On.Celeste.Player.ClimbCheck += Player_ClimbCheck;
         On.Celeste.Player.NormalUpdate += Player_NormalUpdate;
         IL.Celeste.Player.NormalUpdate += Player_NormalUpdate_il;
         IL.Celeste.Player.ClimbUpdate += InsertUseCard;
@@ -95,6 +96,7 @@ public static class PlayerExtensions {
         IL.Celeste.Player.OnCollideV -= Player_OnCollideV_il;
         On.Celeste.Player.OnBoundsH -= Player_OnBoundsH;
         On.Celeste.Player.OnBoundsV -= Player_OnBoundsV;
+        On.Celeste.Player.ClimbCheck -= Player_ClimbCheck;
         On.Celeste.Player.NormalUpdate -= Player_NormalUpdate;
         IL.Celeste.Player.NormalUpdate -= Player_NormalUpdate_il;
         IL.Celeste.Player.ClimbUpdate -= InsertUseCard;
@@ -388,6 +390,35 @@ public static class PlayerExtensions {
         Celeste.Freeze(0.05f);
     }
 
+    private static void ApplyUltraProtection(this Player player) {
+        if (!player.onGround || player.DashDir.X == 0f || player.DashDir.Y <= 0f || player.Speed.Y <= 0f)
+            return;
+
+        player.DashDir.X = Math.Sign(player.DashDir.X);
+        player.DashDir.Y = 0f;
+        player.Speed.X *= 1.2f;
+
+        Input.Rumble(RumbleStrength.Light, RumbleLength.Short);
+
+        var platform = SurfaceIndex.GetPlatformByPriority(player.CollideAll<Platform>(player.Position + Vector2.UnitY, player.temp));
+        int surfaceIndex = -1;
+
+        if (platform != null) {
+            surfaceIndex = platform.GetLandSoundIndex(player);
+
+            if (surfaceIndex >= 0 && !player.MuffleLanding)
+                player.Play($"{SurfaceIndex.GetPathFromIndex(surfaceIndex)}/landing", "surface_index", surfaceIndex);
+
+            if (platform is DreamBlock dreamBlock)
+                dreamBlock.FootstepRipple(player.Position);
+
+            player.MuffleLanding = false;
+        }
+
+        if (player.Speed.Y >= 80.0)
+            Dust.Burst(player.Position, (-Vector2.UnitY).Angle(), 8, player.DustParticleFromSurfaceIndex(surfaceIndex));
+    }
+
     private static void DoGreenSlam(this Player player) {
         var rushData = player.GetData();
 
@@ -521,6 +552,8 @@ public static class PlayerExtensions {
     }
 
     private static void YellowBegin(Player player) {
+        player.ApplyUltraProtection();
+
         player.dashAttackTimer = 0f;
         player.forceMoveXTimer = 0f;
         player.gliderBoostTimer = 0f;
@@ -706,6 +739,7 @@ public static class PlayerExtensions {
     }
 
     private static void RedBegin(Player player) {
+        player.ApplyUltraProtection();
         player.Speed += player.LiftBoost;
         player.PrepareForCustomDash();
         player.dashAttackTimer = RED_DASH_ATTACK;
@@ -773,6 +807,7 @@ public static class PlayerExtensions {
     private static void WhiteBegin(Player player) {
         var rushData = player.GetData();
 
+        player.ApplyUltraProtection();
         player.Speed += player.LiftBoost;
         player.PrepareForCustomDash();
         player.varJumpTimer = 0f;
@@ -886,11 +921,17 @@ public static class PlayerExtensions {
         if (player.wallSpeedRetentionTimer > 0f)
             bounceSpeed = Math.Max(bounceSpeed, Math.Abs(player.wallSpeedRetained));
 
-        return Math.Max(130f, bounceSpeed + RED_BOUNCE_ADD_SPEED);
+        return Math.Max(Player.WallJumpHSpeed, bounceSpeed + RED_BOUNCE_ADD_SPEED);
     }
 
-    private static float GetWallBoostSpeed(float value, Player player)
-        => player.TryGetData(out var rushData) && rushData.RedBoostTimer > 0f ? player.GetRedBounceSpeed() : value;
+    private static float GetWallBoostSpeed(float value, Player player) {
+        if (!player.TryGetData(out var rushData) || rushData.RedBoostTimer == 0f)
+            return value;
+
+        rushData.RedLateBounceTimer = 0f;
+
+        return player.GetRedBounceSpeed();
+    }
 
     private static float GetGroundJumpGraceTime(float value, Player player) {
         if (!player.TryGetData(out var rushData) || player.StateMachine.State != rushData.StBlue)
@@ -1136,8 +1177,10 @@ public static class PlayerExtensions {
                 bounceDir = -Math.Sign(player.wallSpeedRetained);
             }
 
-            if (Math.Sign(player.moveX) == bounceDir)
+            if (Math.Sign(player.moveX) == bounceDir) {
                 player.Speed.X = bounceDir * bounceSpeed;
+                rushData.RedLateBounceTimer = 0f;
+            }
             else if (bounceDir != 0) {
                 rushData.RedLateBounceTimer = RED_LATE_BOUNCE_TIME;
                 rushData.RedLateBounceDir = bounceDir;
@@ -1168,8 +1211,10 @@ public static class PlayerExtensions {
         wallJump(player, dir);
         bounceSpeed += player.LiftBoost.X;
 
-        if (Input.MoveX == dir)
+        if (Input.MoveX == dir) {
             player.Speed.X = bounceSpeed;
+            rushData.RedLateBounceTimer = 0f;
+        }
         else {
             rushData.RedLateBounceTimer = RED_LATE_BOUNCE_TIME;
             rushData.RedLateBounceDir = dir;
@@ -1283,6 +1328,13 @@ public static class PlayerExtensions {
             player.Die(Vector2.Zero);
     }
 
+    private static bool Player_ClimbCheck(On.Celeste.Player.orig_ClimbCheck climbCheck, Player player, int dir, int yAdd)
+        => climbCheck(player, dir, yAdd) && !(player.TryGetData(out var rushData)
+                                              && player.StateMachine.State == Player.StNormal
+                                              && rushData.RedBoostTimer > 0f
+                                              && Math.Sign(player.Speed.X) == dir
+                                              && player.CollideFirst<Solid>(player.Position + new Vector2(2f * dir, yAdd))?.OnDashCollide is not null);
+
     private static int Player_NormalUpdate(On.Celeste.Player.orig_NormalUpdate normalUpdate, Player player) {
         int nextState = normalUpdate(player);
 
@@ -1294,6 +1346,12 @@ public static class PlayerExtensions {
 
         rushData.RedLateBounceTimer = 0f;
         player.Speed.X = rushData.RedLateBounceSpeed;
+
+        if (player.wallBoostTimer > 0f && player.moveX == player.wallBoostDir) {
+            player.wallBoostTimer = 0f;
+            player.Stamina += Player.ClimbJumpCost;
+            player.sweatSprite.Play("idle");
+        }
 
         return Player.StNormal;
     }
